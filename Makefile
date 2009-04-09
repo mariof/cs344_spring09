@@ -60,7 +60,7 @@ libsr_base.a : $(SR_BASE_OBJS)
 
 
 #------------------------------------------------------------------------------
-SR_SRCS_MAIN = sr_main.c
+SR_SRCS_MAIN = sr_main.c balancedTree.c
 
 SR_SRCS_BASE = nf2util.c
 

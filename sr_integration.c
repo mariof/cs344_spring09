@@ -19,6 +19,8 @@
 #include "sr_vns.h"
 #include "sr_base_internal.h"
 
+#include "router.h"
+
 #ifdef _CPUMODE_
 #include "sr_cpu_extension_nf2.h"
 #endif
@@ -32,10 +34,14 @@
  * to VNS, reading in hardware information etc.
  *
  *---------------------------------------------------------------------------*/
-
 void sr_integ_init(struct sr_instance* sr)
 {
     printf(" ** sr_integ_init(..) called \n");
+
+    struct sr_router* subsystem = (struct sr_router*)malloc(sizeof(struct sr_router));
+ 	assert(subsystem);
+    sr_set_subsystem(sr, subsystem);
+
 } /* -- sr_integ_init -- */
 
 /*-----------------------------------------------------------------------------
@@ -136,6 +142,10 @@ int sr_integ_low_level_output(struct sr_instance* sr /* borrowed */,
 void sr_integ_destroy(struct sr_instance* sr)
 {
     printf(" ** sr_integ_destroy(..) called \n");
+    
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    free(subsystem);
+    
 } /* -- sr_integ_destroy -- */
 
 /*-----------------------------------------------------------------------------

@@ -107,6 +107,9 @@ int sr_init_low_level_subystem(int argc, char **argv)
 
     sr = (struct sr_instance*) malloc(sizeof(struct sr_instance));
 
+	// pass the sr so that it's globally accesssible
+	sr_get_global_instance(sr);
+
     while ((c = getopt(argc, argv, "hs:v:p:c:t:r:l:")) != EOF)
     {
         switch (c)
