@@ -44,6 +44,12 @@ void sr_integ_init(struct sr_instance* sr)
  	subsystem->num_ifaces = 0;
  	subsystem->ifaces = NULL;
     sr_set_subsystem(sr, subsystem);
+    
+    pthread_rwlock_init(&tree_lock, NULL);
+    pthread_mutex_init(&list_lock, NULL);
+    
+    subsystem->arpList = NULL;
+    subsystem->arpTree = NULL;
 
 } /* -- sr_integ_init -- */
 
@@ -60,6 +66,9 @@ void sr_integ_init(struct sr_instance* sr)
 void sr_integ_hw_setup(struct sr_instance* sr)
 {
     printf(" ** sr_integ_hw(..) called \n");
+    
+    testList(sr);
+    
 } /* -- sr_integ_hw_setup -- */
 
 /*---------------------------------------------------------------------
@@ -168,6 +177,9 @@ void sr_integ_destroy(struct sr_instance* sr)
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     free(subsystem->ifaces);
     free(subsystem);
+    
+    pthread_rwlock_destroy(&tree_lock);
+    pthread_mutex_destroy(&list_lock);
     
 } /* -- sr_integ_destroy -- */
 

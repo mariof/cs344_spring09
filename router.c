@@ -71,13 +71,6 @@ void processPacket(struct sr_instance* sr,
      	       
 }
 
-
-uint8_t* generateARPresponse(const uint8_t * arpRequest, unsigned int len){
-
-
-	return NULL;
-}
-
 // get interface's MAC address if given correct name and IP address
 uint8_t* getMAC(struct sr_instance* sr, uint32_t ip, const char* name){
 
@@ -126,3 +119,72 @@ uint8_t* generateARPreply(const uint8_t *packet, size_t len, uint8_t *mac){
 	return p;
 } 
 
+
+void testList(struct sr_instance* sr){
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+ 	uint32_t ip1 = 657;
+ 	uint8_t mac1[6] = {12,32,11,99,55,22};
+ 	uint32_t ip2 = 267;
+ 	uint8_t mac2[6] = {2,122,13,91,35,42};
+ 	uint32_t ip3 = 435;
+ 	uint8_t mac3[6] = {112,52,101,9,5,32};
+ 	 	
+ 	insert(&subsystem->arpList, ip1, mac1);
+	insert(&subsystem->arpList, ip2, mac2);
+	insert(&subsystem->arpList, ip3, mac3);
+
+	arpNode *cur = subsystem->arpList;
+	while(cur){
+		printf("ip: %u, mac: %u:%u:%u...\n", cur->ip, cur->mac[0], cur->mac[1], cur->mac[2]);
+		cur = cur->next;
+	}
+	
+	
+	printf("\n");
+	deleteMAC(&subsystem->arpList, mac2);
+	deleteIP(&subsystem->arpList, ip3);
+	insert(&subsystem->arpList, ip1, mac1);
+	cur = subsystem->arpList;
+	while(cur){
+		printf("ip: %u, mac: %u:%u:%u...\n", cur->ip, cur->mac[0], cur->mac[1], cur->mac[2]);
+		cur = cur->next;
+	}
+
+
+	sleep(2);
+	insert(&subsystem->arpList, ip2, mac2);
+	sleep(2);
+	insert(&subsystem->arpList, ip3, mac3);
+
+	printf("\n");
+	cur = subsystem->arpList;
+	while(cur){
+		printf("ip: %u, mac: %u:%u:%u...\n", cur->ip, cur->mac[0], cur->mac[1], cur->mac[2]);
+		cur = cur->next;
+	}
+
+	timeout(&subsystem->arpList);
+
+	printf("\n");
+	cur = subsystem->arpList;
+	while(cur){
+		printf("ip: %u, mac: %u:%u:%u...\n", cur->ip, cur->mac[0], cur->mac[1], cur->mac[2]);
+		cur = cur->next;
+	}
+
+	
+	subsystem->arpTree = generateTree(subsystem->arpList);
+	printf("\n");
+	cur = subsystem->arpList;
+	while(cur){
+		printf("ip: %u, mac: %u:%u:%u...\n", cur->ip, cur->mac[0], cur->mac[1], cur->mac[2]);
+		cur = cur->next;
+	}
+
+
+	uint8_t *m = lookupTree(subsystem->arpTree, ip3);
+	printf("ip: %u matches: %u:%u...\n", ip3, m[0], m[1]);
+	free(m);
+
+	destroyTree(subsystem->arpTree);
+}
