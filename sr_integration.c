@@ -83,8 +83,10 @@ void sr_integ_input(struct sr_instance* sr,
         const char* interface/* borrowed */)
 {
     /* -- INTEGRATION PACKET ENTRY POINT!-- */
-
+	
     printf(" ** sr_integ_input(..) called \n");
+
+	processPacket(sr, packet, len, interface);		
 
 } /* -- sr_integ_input -- */
 
