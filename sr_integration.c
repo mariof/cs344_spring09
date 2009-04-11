@@ -67,6 +67,11 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 {
     printf(" ** sr_integ_hw(..) called \n");
     
+    pthread_t arpCacheRefreshThread;
+    
+    if( pthread_create(&arpCacheRefreshThread, NULL, arpCacheRefresh, NULL) == 0 )
+    	pthread_detach(arpCacheRefreshThread);
+    
     testList(sr);
     
 } /* -- sr_integ_hw_setup -- */

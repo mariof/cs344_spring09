@@ -14,6 +14,8 @@ inline void dbgMsg(char* msg){
 	fputs("dbg: ", stdout); fputs(msg, stdout); fputs("\n", stdout);
 }
 
+void inorderTree(arpTreeNode *node);
+
 // this function processes all input packets
 void processPacket(struct sr_instance* sr,
         const uint8_t * packet/* borrowed */,
@@ -21,6 +23,7 @@ void processPacket(struct sr_instance* sr,
         const char* interface/* borrowed */)
 {
     int i;
+   	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
         
     if (len < ETHERNET_HEADER_LENGTH){
     	errorMsg("Ethernet Packet too short");
@@ -28,16 +31,62 @@ void processPacket(struct sr_instance* sr,
     }
     
     // see if input packet is IPv4 or ARP
-    if (packet[12] == 8 && packet[13] == 0){
+    if (packet[12] == 8 && packet[13] == 0){ // IPv4
         dbgMsg("IPv4 packet received");
+	    if (len < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH){
+	    	errorMsg("IP Packet too short");
+	    	return;
+	    }
+    	const uint8_t* ipPacket = &packet[ETHERNET_HEADER_LENGTH];
+
+    	uint32_t testIP, dstIP;
+    		
+    	testIP =	172 * 256 * 256 * 256 +
+   				 	24 * 256 * 256 +
+    			 	74 * 256 +
+				 	11 * 1; 
+   				
+    	dstIP = ipPacket[16] * 256 * 256 * 256 +
+   				ipPacket[17] * 256 * 256 +
+    			ipPacket[18] * 256 +
+				ipPacket[19] * 1; 
+   				
+		testIP = ntohl(testIP);
+		dstIP = ntohl(dstIP);
+
+		// find the interface by name
+		for(i = 0; i < subsystem->num_ifaces; i++){
+			if (!strcmp(interface, subsystem->ifaces[i].name))
+				break;
+		}
+		if (i >= subsystem->num_ifaces){
+			errorMsg("Given interfaces does not exist");
+			return;
+		}		
+		uint8_t *myMAC = subsystem->ifaces[i].addr;
+		uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
+
+
+		if(myIP == dstIP){
+			dbgMsg("Received packet destined for the router");
+			//sr_transport_input(packet);
+		}
+		else{
+			dbgMsg("Forwarding received packet");
+		}		
+		
+		// just testing
+		sendARPrequest(sr, interface, testIP);
     
     }
-    else if (packet[12] == 8 && packet[13] == 6){
+    else if (packet[12] == 8 && packet[13] == 6){ // ARP
 	    if (len < ETHERNET_HEADER_LENGTH + ARP_HEADER_LENGTH){
 	    	errorMsg("ARP Packet too short");
 	    	return;
 	    }
     	const uint8_t* arpPacket = &packet[ETHERNET_HEADER_LENGTH];
+ 
+ 		//for(i = 0; i < len; i++) printf("%d: %d\n", i, packet[i]);
     	    	
     	// handle ARP requests and responses    	
     	if (arpPacket[6] == 0 && arpPacket[7] == 1){
@@ -47,11 +96,11 @@ void processPacket(struct sr_instance* sr,
     		const uint8_t* arpPacketData = &arpPacket[ARP_HEADER_LENGTH];
     		uint32_t dstIP;
     		
-    		dstIP = arpPacketData[macLen + ipLen + macLen + 3] * 1 + 
-    				arpPacketData[macLen + ipLen + macLen + 2] * 256 +
+    		dstIP = arpPacketData[macLen + ipLen + macLen + 0] * 256 * 256 * 256 +
     				arpPacketData[macLen + ipLen + macLen + 1] * 256 * 256 +
-    				arpPacketData[macLen + ipLen + macLen + 0] * 256 * 256 * 256;
-    
+    				arpPacketData[macLen + ipLen + macLen + 2] * 256 +
+    				arpPacketData[macLen + ipLen + macLen + 3] * 1; 
+    				
     	    //for(i = macLen+ipLen+macLen; i < macLen+ipLen+macLen+4; i++) printf("%d: %d\n", i, arpPacketData[i]);
 			uint8_t* if_mac = getMAC(sr, ntohl(dstIP), interface);
 				
@@ -60,11 +109,29 @@ void processPacket(struct sr_instance* sr,
 				uint8_t* arpReply = generateARPreply(packet, len, if_mac);
 				sr_integ_low_level_output(sr, arpReply, 60, interface);
 				free(arpReply);
-			}
-    	
+			}    	
     	}
     	else if (arpPacket[6] == 0 && arpPacket[7] == 2){
     		dbgMsg("ARP response received");
+			size_t ipLen = arpPacket[5];
+			size_t macLen = arpPacket[4];
+    		const uint8_t* arpPacketData = &arpPacket[ARP_HEADER_LENGTH];
+    		uint32_t srcIP;
+    		uint8_t srcMAC[6];
+    		
+    		for(i = 0; i < macLen; i++) srcMAC[i] = arpPacketData[i];
+    		
+    		srcIP = arpPacketData[macLen + 0] * 256 * 256 * 256 +
+    				arpPacketData[macLen + 1] * 256 * 256 +
+    				arpPacketData[macLen + 2] * 256 +
+    				arpPacketData[macLen + 3] * 1;  				
+    		srcIP = ntohl(srcIP); 
+    	
+    		arpInsert(&subsystem->arpList, srcIP, srcMAC, 0);
+			arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
+			//inorderTree(subsystem->arpTree);
+			
+			// check all queues??
     	}
     	    
     }
@@ -119,6 +186,81 @@ uint8_t* generateARPreply(const uint8_t *packet, size_t len, uint8_t *mac){
 	return p;
 } 
 
+// converts IP from host byte order integer to network byte order byte array
+void int2byteIP(uint32_t ip, uint8_t *byteIP){
+	uint32_t nip = htonl(ip);
+	
+	byteIP[3] = (uint8_t)(nip % 256);
+	nip = nip / 256;
+	byteIP[2] = (uint8_t)(nip % 256);
+	nip = nip / 256;
+	byteIP[1] = (uint8_t)(nip % 256);
+	nip = nip / 256;
+	byteIP[0] = (uint8_t)(nip % 256);	
+}
+
+// returns a 60 byte ARP request packet, use sendARPrequest instead
+uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
+	int i, j;
+	uint8_t *p = (uint8_t*)malloc(60*sizeof(uint8_t));
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	// find the interface by name
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if (!strcmp(interface, subsystem->ifaces[i].name))
+			break;
+	}
+	if (i >= subsystem->num_ifaces){
+		errorMsg("Given interfaces does not exist");
+		return NULL;
+	}	
+	
+	uint8_t *myMAC = subsystem->ifaces[i].addr;
+	uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
+
+	// generate Ethernet Header
+	for (i = 0, j = 6; i < 6; i++, j++) p[i] = 255;
+	for (i = 6, j = 0; j < 12; i++, j++) p[i] = myMAC[j];	
+	p[12] = 8; p[13] = 6;
+	
+	// generate ARP Header
+	p[14] = 0; p[15] = 1; p[16] = 8; p[17] = 0; p[18] = 6; p[19] = 4;
+	p[20] = 0; p[21] = 1;
+		
+	// generate ARP data
+	for (i = 22, j = 0; i < 28; i++, j++) p[i] = myMAC[j];
+	int2byteIP(myIP, &p[28]);
+	for (i = 32; i < 38; i++) p[i] = 0;
+	int2byteIP(ip, &p[38]);
+	for (i = 42; i < 60; i++) p[i] = 0;
+	
+	return p;
+} 
+
+// sends ARP request for ip (host byte order)
+void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
+	uint8_t *arprq = generateARPrequest(sr, interface, ip);
+	//for(i = 0; i < 60; i++) printf("::%d: %d\n", i, arprq[i]);				
+	sr_integ_low_level_output(sr, arprq, 60, interface);
+	free(arprq);			
+}
+
+// runs every ~20 seconds in a separate thread to see if any arp cache entries have timed out
+void* arpCacheRefresh(void *dummy){
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	while(1){
+		if( arpTimeout(&subsystem->arpList) )
+			arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
+		sleep(ARP_CACHE_REFRESH);
+	}
+}
+
+
+
+//////////////////////////////
+// test functions
+//////////////////////////////
 
 void testList(struct sr_instance* sr){
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
@@ -129,9 +271,9 @@ void testList(struct sr_instance* sr){
  	uint32_t ip3 = 435;
  	uint8_t mac3[6] = {112,52,101,9,5,32};
  	 	
- 	insert(&subsystem->arpList, ip1, mac1);
-	insert(&subsystem->arpList, ip2, mac2);
-	insert(&subsystem->arpList, ip3, mac3);
+ 	arpInsert(&subsystem->arpList, ip1, mac1, 1);
+	arpInsert(&subsystem->arpList, ip2, mac2, 1);
+	arpInsert(&subsystem->arpList, ip3, mac3, 1);
 
 	arpNode *cur = subsystem->arpList;
 	while(cur){
@@ -141,9 +283,9 @@ void testList(struct sr_instance* sr){
 	
 	
 	printf("\n");
-	deleteMAC(&subsystem->arpList, mac2);
-	deleteIP(&subsystem->arpList, ip3);
-	insert(&subsystem->arpList, ip1, mac1);
+	arpDeleteMAC(&subsystem->arpList, mac2);
+	arpDeleteIP(&subsystem->arpList, ip3);
+	arpInsert(&subsystem->arpList, ip1, mac1, 0);
 	cur = subsystem->arpList;
 	while(cur){
 		printf("ip: %u, mac: %u:%u:%u...\n", cur->ip, cur->mac[0], cur->mac[1], cur->mac[2]);
@@ -152,9 +294,9 @@ void testList(struct sr_instance* sr){
 
 
 	sleep(2);
-	insert(&subsystem->arpList, ip2, mac2);
+	arpInsert(&subsystem->arpList, ip2, mac2, 0);
 	sleep(2);
-	insert(&subsystem->arpList, ip3, mac3);
+	arpInsert(&subsystem->arpList, ip3, mac3, 1);
 
 	printf("\n");
 	cur = subsystem->arpList;
@@ -163,7 +305,7 @@ void testList(struct sr_instance* sr){
 		cur = cur->next;
 	}
 
-	timeout(&subsystem->arpList);
+	arpTimeout(&subsystem->arpList);
 
 	printf("\n");
 	cur = subsystem->arpList;
@@ -173,7 +315,7 @@ void testList(struct sr_instance* sr){
 	}
 
 	
-	subsystem->arpTree = generateTree(subsystem->arpList);
+	subsystem->arpTree = arpGenerateTree(subsystem->arpList);
 	printf("\n");
 	cur = subsystem->arpList;
 	while(cur){
@@ -182,9 +324,16 @@ void testList(struct sr_instance* sr){
 	}
 
 
-	uint8_t *m = lookupTree(subsystem->arpTree, ip3);
+	uint8_t *m = arpLookupTree(subsystem->arpTree, ip3);
 	printf("ip: %u matches: %u:%u...\n", ip3, m[0], m[1]);
 	free(m);
 
-	destroyTree(subsystem->arpTree);
+	arpReplaceTree(&subsystem->arpTree, NULL);
+}
+
+void inorderTree(arpTreeNode *node){
+	if(node == NULL) return;
+	if(node->left) inorderTree(node->left);
+	printf("ip: %u, mac:%d:%d:...\n", node->ip, node->mac[0], node->mac[1]);
+	if(node->right) inorderTree(node->right);
 }

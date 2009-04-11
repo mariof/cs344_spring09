@@ -11,6 +11,7 @@ struct arpCacheNode{
 	uint32_t ip;
 	uint8_t mac[6];
 	time_t t;
+	int is_static;
 	struct arpCacheNode *next;
 	struct arpCacheNode *prev;
 };
@@ -25,14 +26,15 @@ struct arpCacheTreeNode{
 typedef struct arpCacheNode arpNode;
 typedef struct arpCacheTreeNode arpTreeNode;
 
-void insert(arpNode **head, uint32_t ip, uint8_t *mac);
-void deleteIP(arpNode **head, uint32_t ip);
-void deleteMAC(arpNode **head, uint8_t *mac);
-void timeout(arpNode **head);
+void arpInsert(arpNode **head, uint32_t ip, uint8_t *mac, int is_static);
+arpNode* arpFindIP(arpNode *head, uint32_t ip);
+void arpDeleteIP(arpNode **head, uint32_t ip);
+void arpDeleteMAC(arpNode **head, uint8_t *mac);
+int arpTimeout(arpNode **head);
 
-arpTreeNode* generateTree(arpNode *head);
-uint8_t* lookupTree(arpTreeNode *root, uint32_t ip);
-void destroyTree(arpTreeNode *root);
+arpTreeNode* arpGenerateTree(arpNode *head);
+uint8_t* arpLookupTree(arpTreeNode *root, uint32_t ip);
+void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree);
 
 pthread_mutex_t list_lock;
 pthread_rwlock_t tree_lock;

@@ -1,16 +1,30 @@
 #include "arpCache.h"
 
-// insert new node into the list
-void insert(arpNode **head, uint32_t ip, uint8_t *mac){
+/* 
+ARP cache is kept as a sorted linked list, however since many more lookups into the cache are expected than cache modifications, a binary search tree is generated from the list to provide faster lookups.
+*/
+
+// insert new node into the list, mac is borrowed
+void arpInsert(arpNode **head, uint32_t ip, uint8_t *mac, int is_static){
 	int i;
 	arpNode *n = (arpNode*)malloc(sizeof(arpNode));	
 	n->ip = ip;
 	for(i = 0; i < 6; i++) n->mac[i] = mac[i];
 	n->t = time(NULL);
+	n->is_static = is_static;
 	n->next = n->prev = NULL;
 
- 	deleteIP(head, ip);
-
+	arpNode *tmp = arpFindIP(*head, ip);
+	if(tmp){
+	 	if (is_static || (!(tmp->is_static)) ){
+ 			arpDeleteIP(head, ip);
+ 		}
+		else{
+			free(n);
+			return;
+		}
+	}
+	
 	pthread_mutex_lock(&list_lock);
 
 	if (*head == NULL){
@@ -46,8 +60,29 @@ void insert(arpNode **head, uint32_t ip, uint8_t *mac){
 
 }
 
+// returns list node given IP
+arpNode* arpFindIP(arpNode *head, uint32_t ip){
+	pthread_mutex_lock(&list_lock);
+
+	if (head == NULL){
+		pthread_mutex_unlock(&list_lock);
+		return NULL;
+	}
+	
+	arpNode *cur = head;
+	while(cur){
+		if(cur->ip == ip){
+			break;
+		}	
+		cur = cur->next;
+	}
+	pthread_mutex_unlock(&list_lock);
+
+	return cur;
+}
+
 // delete a list entry given an IP
-void deleteIP(arpNode **head, uint32_t ip){
+void arpDeleteIP(arpNode **head, uint32_t ip){
 	pthread_mutex_lock(&list_lock);
 
 	if (*head == NULL){
@@ -77,7 +112,7 @@ void deleteIP(arpNode **head, uint32_t ip){
 }
 
 // delete a list entry given a MAC
-void deleteMAC(arpNode **head, uint8_t *mac){
+void arpDeleteMAC(arpNode **head, uint8_t *mac){
 	int i;
 	
 	pthread_mutex_lock(&list_lock);
@@ -112,18 +147,20 @@ void deleteMAC(arpNode **head, uint8_t *mac){
 
 }
 
-// timeout old entries in the list
-void timeout(arpNode **head){
+// delete old entries in the list, return 0 if nothing was done, 1 if list was updated
+int arpTimeout(arpNode **head){
 	pthread_mutex_lock(&list_lock);
-
+	int retVal = 0;
+	
 	if (*head == NULL){
 		pthread_mutex_unlock(&list_lock);
-		return;
+		return 0;
 	}
 	
 	arpNode *cur = *head;
 	while(cur){
-		if( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT ){
+		if( (!cur->is_static) && ( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT ) ){
+			retVal = 1;
 			if(cur->prev){
 				cur->prev->next = cur->next;
 			}
@@ -144,7 +181,7 @@ void timeout(arpNode **head){
 	}
 
 	pthread_mutex_unlock(&list_lock);
-
+	return retVal;
 }
 
 arpTreeNode* createTree(arpNode *head){
@@ -185,18 +222,16 @@ arpTreeNode* createTree(arpNode *head){
 }
 
 // generate binary search tree (balanced) from the sorted list
-arpTreeNode* generateTree(arpNode *head){
+arpTreeNode* arpGenerateTree(arpNode *head){
 	arpTreeNode *rv;
-	pthread_rwlock_wrlock(&tree_lock);
 	pthread_mutex_lock(&list_lock);
 	rv = createTree(head);
 	pthread_mutex_unlock(&list_lock);
-	pthread_rwlock_unlock(&tree_lock);	
 	return rv;
 }
 
-// do lookup into the tree O(logn)
-uint8_t* lookupTree(arpTreeNode *root, uint32_t ip){
+// do lookup into the tree O(logn), destroy return value when done with it
+uint8_t* arpLookupTree(arpTreeNode *root, uint32_t ip){
 	uint8_t *rv;
 	
 	pthread_rwlock_rdlock(&tree_lock);
@@ -207,12 +242,12 @@ uint8_t* lookupTree(arpTreeNode *root, uint32_t ip){
 	}
 		
 	if(ip < root->ip){
-		rv = lookupTree(root->left, ip);
+		rv = arpLookupTree(root->left, ip);
 		pthread_rwlock_unlock(&tree_lock);
 		return rv;
 	}
 	else if(ip > root->ip){
-		rv = lookupTree(root->right, ip);
+		rv = arpLookupTree(root->right, ip);
 		pthread_rwlock_unlock(&tree_lock);
 		return rv;
 	}
@@ -227,16 +262,20 @@ uint8_t* lookupTree(arpTreeNode *root, uint32_t ip){
 	return NULL;
 }
 
-
-void destroyNode(arpTreeNode *root){
-	if(root->left) destroyNode(root->left);
-	if(root->right) destroyNode(root->right);
+// call arpReplaceTree with NULL newTree to destroy it
+void arpDestroyTree(arpTreeNode *root){
+	if(root == NULL) return;
+	if(root->left) arpDestroyTree(root->left);
+	if(root->right) arpDestroyTree(root->right);
 	free(root);
 }
 
-// destroy entire tree by doing postorder traversal
-void destroyTree(arpTreeNode *root){
+// replaces old tree with a new one in a thread safe fashion
+// replace with NULL to destroy tree
+void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree){
+	arpTreeNode *oldTree = *root;
 	pthread_rwlock_wrlock(&tree_lock);
-	destroyNode(root);
-	pthread_rwlock_unlock(&tree_lock);	
+	*root = newTree;
+	pthread_rwlock_unlock(&tree_lock);
+	if(oldTree) arpDestroyTree(oldTree);
 }
