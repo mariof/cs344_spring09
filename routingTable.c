@@ -40,7 +40,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint8_t netmask, const c
 	}
 
 	//check for equality to prevent adding duplicate nodes
-	if(cnode->ip == ip && cnode->netmask == netmask) {
+	if((cnode->ip == ip) && ((uint8_t)cnode->netmask == (uint8_t)netmask)) {
 	    strcpy(cnode->output_if, output_if);
 	    free(node);
 	    pthread_mutex_unlock(&rtable_lock);
@@ -72,10 +72,10 @@ void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask)
 	if(node->ip == ip && node->netmask == netmask) {
 	    //delete node
 	    if(node->prev != NULL) {
-		node->prev->next == node->next;
+		(node->prev)->next = node->next;
 	    }
 	    if(node->next != NULL) {
-		node->next->prev = node->prev;
+		(node->next)->prev = node->prev;
 	    }
 	    free(node);
 	}

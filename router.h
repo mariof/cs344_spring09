@@ -3,6 +3,7 @@
 #include "sr_integration.h"
 #include "arpCache.h"
 #include "arpQueue.h"
+#include "routingTable.h"
 
 #define ETHERNET_HEADER_LENGTH 14
 #define ARP_HEADER_LENGTH 8
@@ -15,6 +16,7 @@ struct sr_router{
 	struct arpQueueNode* arpQueue;
 	arpNode *arpList;
 	arpTreeNode *arpTree;
+	rtableNode *rtable;
 	int num_ifaces;
 	struct sr_vns_if* ifaces;
 };
