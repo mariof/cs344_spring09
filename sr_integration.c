@@ -47,7 +47,9 @@ void sr_integ_init(struct sr_instance* sr)
     
     pthread_rwlock_init(&tree_lock, NULL);
     pthread_mutex_init(&list_lock, NULL);
+    pthread_mutex_init(&queue_lock, NULL);
     
+    subsystem->arpQueue = NULL;
     subsystem->arpList = NULL;
     subsystem->arpTree = NULL;
 
@@ -67,11 +69,14 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 {
     printf(" ** sr_integ_hw(..) called \n");
     
-    pthread_t arpCacheRefreshThread;
+    pthread_t arpCacheRefreshThread, arpQueueRefreshThread;
     
     if( pthread_create(&arpCacheRefreshThread, NULL, arpCacheRefresh, NULL) == 0 )
     	pthread_detach(arpCacheRefreshThread);
     
+    if( pthread_create(&arpQueueRefreshThread, NULL, arpQueueRefresh, NULL) == 0 )
+    	pthread_detach(arpQueueRefreshThread);
+
     testList(sr);
     
 } /* -- sr_integ_hw_setup -- */
@@ -185,6 +190,7 @@ void sr_integ_destroy(struct sr_instance* sr)
     
     pthread_rwlock_destroy(&tree_lock);
     pthread_mutex_destroy(&list_lock);
+    pthread_mutex_destroy(&queue_lock);
     
 } /* -- sr_integ_destroy -- */
 

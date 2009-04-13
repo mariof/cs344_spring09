@@ -14,7 +14,7 @@ inline void dbgMsg(char* msg){
 	fputs("dbg: ", stdout); fputs(msg, stdout); fputs("\n", stdout);
 }
 
-void inorderTree(arpTreeNode *node);
+void inorderPrintTree(arpTreeNode *node);
 
 // this function processes all input packets
 void processPacket(struct sr_instance* sr,
@@ -63,7 +63,6 @@ void processPacket(struct sr_instance* sr,
 			errorMsg("Given interfaces does not exist");
 			return;
 		}		
-		uint8_t *myMAC = subsystem->ifaces[i].addr;
 		uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
 
 
@@ -76,7 +75,7 @@ void processPacket(struct sr_instance* sr,
 		}		
 		
 		// just testing
-		sendARPrequest(sr, interface, testIP);
+		sendIPpacket(sr, interface, testIP, (uint8_t*)packet, len);
     
     }
     else if (packet[12] == 8 && packet[13] == 6){ // ARP
@@ -113,7 +112,6 @@ void processPacket(struct sr_instance* sr,
     	}
     	else if (arpPacket[6] == 0 && arpPacket[7] == 2){
     		dbgMsg("ARP response received");
-			size_t ipLen = arpPacket[5];
 			size_t macLen = arpPacket[4];
     		const uint8_t* arpPacketData = &arpPacket[ARP_HEADER_LENGTH];
     		uint32_t srcIP;
@@ -129,9 +127,10 @@ void processPacket(struct sr_instance* sr,
     	
     		arpInsert(&subsystem->arpList, srcIP, srcMAC, 0);
 			arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
-			//inorderTree(subsystem->arpTree);
+			//inorderPrintTree(subsystem->arpTree);
 			
-			// check all queues??
+			// send queues
+			queueSend(srcIP, interface);
     	}
     	    
     }
@@ -169,7 +168,7 @@ uint8_t* generateARPreply(const uint8_t *packet, size_t len, uint8_t *mac){
 
 	// generate Ethernet Header
 	for (i = 0, j = 6; i < 6; i++, j++) p[i] = packet[j];
-	for (i = 6, j = 0; j < 12; i++, j++) p[i] = mac[j];	
+	for (i = 6, j = 0; i < 12; i++, j++) p[i] = mac[j];	
 	p[12] = 8; p[13] = 6;
 	
 	// generate ARP Header
@@ -220,7 +219,7 @@ uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint3
 
 	// generate Ethernet Header
 	for (i = 0, j = 6; i < 6; i++, j++) p[i] = 255;
-	for (i = 6, j = 0; j < 12; i++, j++) p[i] = myMAC[j];	
+	for (i = 6, j = 0; i < 12; i++, j++) p[i] = myMAC[j];	
 	p[12] = 8; p[13] = 6;
 	
 	// generate ARP Header
@@ -254,6 +253,44 @@ void* arpCacheRefresh(void *dummy){
 			arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
 		sleep(ARP_CACHE_REFRESH);
 	}
+}
+
+
+// Sends out packet to address ip out the "interface". Packet has to have a placeholder for Ethernet header. Packet is just borrowed (not destroyed here)
+void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, uint8_t* packet, unsigned len){
+	int i,j;
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	// find the interface by name
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if (!strcmp(interface, subsystem->ifaces[i].name))
+			break;
+	}
+	if (i >= subsystem->num_ifaces){
+		errorMsg("Given interfaces does not exist");
+		return;
+	}		
+	uint8_t *myMAC = subsystem->ifaces[i].addr;
+
+	// fill Ethernet Header
+	for (i = 0; i < 6; i++) packet[i] = 0;
+	for (i = 6, j = 0; i < 12; i++, j++) packet[i] = myMAC[j];	
+	packet[12] = 8; packet[13] = 0;
+
+	// get destination MAC
+	uint8_t *dstMAC = arpLookupTree(subsystem->arpTree, ip);
+	
+	if(dstMAC){
+		dbgMsg("Sending packet");
+		for (i = 0; i < 6; i++) packet[i] = dstMAC[i];
+		sr_integ_low_level_output(sr, packet, len, interface);	
+		free(dstMAC);	
+	}
+	else{ // send out ARP and queue the packet
+		dbgMsg("Queueing packet");
+		sendARPrequest(sr, interface, ip);
+		queuePacket(packet, len, interface, ip);
+	}	
 }
 
 
@@ -292,10 +329,9 @@ void testList(struct sr_instance* sr){
 		cur = cur->next;
 	}
 
-
-	sleep(2);
+	sleep(0);
 	arpInsert(&subsystem->arpList, ip2, mac2, 0);
-	sleep(2);
+	sleep(0);
 	arpInsert(&subsystem->arpList, ip3, mac3, 1);
 
 	printf("\n");
@@ -331,9 +367,9 @@ void testList(struct sr_instance* sr){
 	arpReplaceTree(&subsystem->arpTree, NULL);
 }
 
-void inorderTree(arpTreeNode *node){
+void inorderPrintTree(arpTreeNode *node){
 	if(node == NULL) return;
-	if(node->left) inorderTree(node->left);
+	if(node->left) inorderPrintTree(node->left);
 	printf("ip: %u, mac:%d:%d:...\n", node->ip, node->mac[0], node->mac[1]);
-	if(node->right) inorderTree(node->right);
+	if(node->right) inorderPrintTree(node->right);
 }
