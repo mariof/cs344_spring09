@@ -14,7 +14,8 @@
 
 struct routingTableNode {
 	uint32_t ip;
-	uint8_t netmask;
+	uint32_t netmask;
+	uint32_t gateway;
 	char output_if[SR_NAMELEN];
 	time_t t;
 	struct routingTableNode *prev;
@@ -23,7 +24,7 @@ struct routingTableNode {
 
 typedef struct routingTableNode rtableNode;
 
-void insert_rtable_node(rtableNode **head, uint32_t ip, uint8_t netmask, const char* output_if);
+void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if);
 void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask);
 char *lp_match(rtableNode **head, uint32_t ip);
 

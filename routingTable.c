@@ -1,6 +1,6 @@
 #include "routingTable.h"
 
-void insert_rtable_node(rtableNode **head, uint32_t ip, uint8_t netmask, const char* output_if)
+void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if)
 {
     //check output_if size
     if(strlen(output_if) >= SR_NAMELEN) {
@@ -11,6 +11,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint8_t netmask, const c
     rtableNode *node = (rtableNode*) malloc(sizeof(rtableNode));
     node->ip = ip;
     node->netmask = netmask;
+    node->gateway = gateway;
     strcpy(node->output_if, output_if);
     node->next = node->prev = NULL;
 
@@ -41,6 +42,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint8_t netmask, const c
 
 	//check for equality to prevent adding duplicate nodes
 	if((cnode->ip == ip) && ((uint8_t)cnode->netmask == (uint8_t)netmask)) {
+	    cnode->gateway = gateway;
 	    strcpy(cnode->output_if, output_if);
 	    free(node);
 	    pthread_mutex_unlock(&rtable_lock);
@@ -102,7 +104,7 @@ char *lp_match(rtableNode **head, uint32_t ip)
     //do LP matching
     rtableNode *node = *head;
     while(node != NULL) {
-	if((node->ip >> (32-node->netmask)) == (ip >> (32-node->netmask))) {
+	if((node->ip & node->netmask) == (ip && node->netmask)) {
 	    //malloc 32 bytes for storing interface
 	    output_if = (char*)malloc((sizeof(char)) * SR_NAMELEN);
 	    strcpy(output_if, node->output_if);
