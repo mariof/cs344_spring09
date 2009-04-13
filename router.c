@@ -373,3 +373,33 @@ void inorderPrintTree(arpTreeNode *node){
 	printf("ip: %u, mac:%d:%d:...\n", node->ip, node->mac[0], node->mac[1]);
 	if(node->right) inorderPrintTree(node->right);
 }
+
+void fill_rtable(rtableNode **head)
+{
+    int ip[4], gw[4], nm[4];
+    char output_if[SR_NAMELEN];
+    uint32_t ip_32 = 0, gw_32 = 0, nm_32 = 0;
+    int i;
+    FILE *rtable_file = fopen("rtable", "r");
+
+    while (!feof(rtable_file)) {
+	if (fscanf(rtable_file, "%d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s", 
+		    &ip[0], &ip[1], &ip[2], &ip[3],
+		    &gw[0], &gw[1], &gw[2], &gw[3],
+		    &nm[0], &nm[1], &nm[2], &nm[3],
+		    output_if) != 13)
+	    break;
+	for(i = 0; i < 3; i++) {
+	    ip_32 = ip_32 << 8;
+	    ip_32 += (unsigned int)ip[i];
+	    gw_32 = gw_32 << 8;
+	    gw_32 += (unsigned int)gw[i];
+	    nm_32 = nm_32 << 8;
+	    nm_32 += (unsigned int)nm[i];
+	}
+	insert_rtable_node(head, ip_32, nm_32, gw_32, output_if);
+    }
+
+    fclose(rtable_file);
+
+}

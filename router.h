@@ -35,3 +35,5 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 void* arpCacheRefresh(void *dummy);
 
 void testList(struct sr_instance* sr);
+
+void fill_rtable();
