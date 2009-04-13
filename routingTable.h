@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* the routing table is maintained as an ordered linked list
  * sorted by the decreasing order of
@@ -14,7 +15,7 @@
 struct routingTableNode {
 	uint32_t ip;
 	uint8_t netmask;
-	char ouput_if[SR_NAMELEN];
+	char output_if[SR_NAMELEN];
 	time_t t;
 	struct routingTableNode *prev;
 	struct routingTableNode *next;
