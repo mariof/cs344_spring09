@@ -1,3 +1,4 @@
+#include "router.h"
 #include "routingTable.h"
 
 void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if, int is_static)
