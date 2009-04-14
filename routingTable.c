@@ -130,6 +130,7 @@ uint32_t gw_match(rtableNode **head, uint32_t ip)
 	if((node->ip & node->netmask) == (ip & node->netmask)) {
 	    gw = node->gateway;
 	}
+	node = node->next;
     }
     //release lock
     pthread_mutex_unlock(&rtable_lock);
