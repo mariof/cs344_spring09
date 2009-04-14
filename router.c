@@ -469,11 +469,11 @@ void fill_rtable(rtableNode **head)
 		    output_if);
 	for(i = 0; i < 3; i++) {
 	    ip_32 = ip_32 << 8;
-	    ip_32 += (unsigned int)ip[i];
+	    ip_32 += (uint32_t)ip[i];
 	    gw_32 = gw_32 << 8;
-	    gw_32 += (unsigned int)gw[i];
+	    gw_32 += (uint32_t)gw[i];
 	    nm_32 = nm_32 << 8;
-	    nm_32 += (unsigned int)nm[i];
+	    nm_32 += (uint32_t)nm[i];
 	}
 	insert_rtable_node(head, ntohl(ip_32), ntohl(nm_32), ntohl(gw_32), output_if);
     }
