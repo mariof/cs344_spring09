@@ -61,9 +61,9 @@ void processPacket(struct sr_instance* sr,
 	if(sum16 != 0) {
 	    /* checksum error
 	     * drop packet
-	     * send icmp packet back to the source?
 	     */
-	    errorMsg("Checksum error!");
+	    errorMsg("Checksum error! Dropping the packet.");
+	    return;
 	}
 	
 	// decrement and check TTL
@@ -72,7 +72,9 @@ void processPacket(struct sr_instance* sr,
 	    /* drop packet
 	     * send icmp packet back to the source
 	     */
-	    errorMsg("TTL went to 0. Should drop packet");
+	    errorMsg("TTL went to 0. Dropping packet");
+	    sendICMPTimeExceeded(interface, packet, len);
+	    return;
 	}
 	ipPacket[8] = ttl-1;
 
@@ -85,6 +87,7 @@ void processPacket(struct sr_instance* sr,
 	ipPacket[11] = (csum >> 8) & 0xFF;
 
     	uint32_t nextHopIP, dstIP;
+	char *out_if = NULL;
     		
 	/*uint32_t testIP;
 	testIP =	172 * 256 * 256 * 256 +
@@ -100,6 +103,19 @@ void processPacket(struct sr_instance* sr,
 	dstIP = ntohl(dstIP); // dstIP in hbo
 
 	nextHopIP = gw_match(&(subsystem->rtable), dstIP); //nextHopIP in hbo
+	if(!nextHopIP) {
+	    errorMsg("Destination network unreachable. Dropping packet");
+	    sendICMPDestinationUnreachable(interface, packet, len, 0);
+	    return;
+	}
+
+	out_if = lp_match(&(subsystem->rtable), dstIP); //output interface
+	if(!out_if) {
+	    errorMsg("Destination network unreachable. Dropping packet");
+	    sendICMPDestinationUnreachable(interface, packet, len, 0);
+	    return;
+	}
+	free(out_if);
 
 
 	// find the interface by name
@@ -128,7 +144,7 @@ void processPacket(struct sr_instance* sr,
 	}
 	else{
 	    dbgMsg("Forwarding received packet");
-	    sendIPpacket(sr, interface, nextHopIP, (uint8_t*)packet, len);
+	    sendIPpacket(sr, out_if, nextHopIP, (uint8_t*)packet, len);
 	}		
 
     
