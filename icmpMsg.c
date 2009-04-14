@@ -100,7 +100,8 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 */
 void sendICMPDestinationUnreachable(const char* interface, uint8_t* originalPacket, unsigned len, int code){
 	int i, j;
-	uint8_t *p = (uint8_t*)malloc(60*sizeof(uint8_t));
+	int myLen = 70;
+	uint8_t *p = (uint8_t*)malloc(myLen*sizeof(uint8_t));
 	uint32_t dstIP;
 
 	if(len < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8){
@@ -157,10 +158,64 @@ void sendICMPDestinationUnreachable(const char* interface, uint8_t* originalPack
 	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
 	
 	free(p);
-
-
 }
 
-void sendICMPTimeExceeded(uint32_t dstIP, const char* interface){
+void sendICMPTimeExceeded(const char* interface, uint8_t* originalPacket, unsigned len){
+	int i, j;
+	int myLen = 70; 
+	uint8_t *p = (uint8_t*)malloc(myLen*sizeof(uint8_t));
+	uint32_t dstIP;
 
+	if(len < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8){
+		errorMsg("Original packet too short!");
+		return;
+	}
+	
+	dstIP = originalPacket[12] * 256 * 256 * 256 +
+			originalPacket[13] * 256 * 256 +
+			originalPacket[14] * 256 +
+			originalPacket[15] * 1;    				
+	dstIP = ntohl(dstIP);
+
+//	for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
+	
+	// Ethernet header
+	for(i = 0; i < ETHERNET_HEADER_LENGTH; i++) p[i] = 0;
+	
+	// IP header
+	i = ETHERNET_HEADER_LENGTH;
+	p[i++] = 69; // version and length 
+	p[i++] = 0; // TOS
+	p[i++] = 0; p[i++] = 56;// total length
+	p[i++] = (uint8_t)(rand() % 256); p[i++] = (uint8_t)(rand() % 256); // identification
+	p[i++] = 0; p[i++] = 0; // fragmentation
+	p[i++] = 64; // TTL
+	p[i++] = 1; // protocol (ICMP)
+	p[i++] = 0; p[i++] = 0; // checksum (calculated later)
+	int2byteIP(getInterfaceIP(interface), &p[i]); i += 4; // source IP
+	int2byteIP(dstIP, &p[i]); i+=4; // destination IP
+	
+	// IP checksum
+	int ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+	p[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
+	p[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
+	
+	// ICMP header
+	i = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH;
+	p[i++] = 11; p[i++] = 0; // TTL expired
+	p[i++] = 0; p[i++] = 0; // ICMP checksum (calculated later)	
+	p[i++] = 0; p[i++] = 0; p[i++] = 0; p[i++] = 0;// unused
+		
+	// ICMP data
+	for(j = ETHERNET_HEADER_LENGTH; j < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8; i++, j++) p[i] = originalPacket[j];
+
+	// ICMP checksum
+	ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), 8+28);
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(ipChksum) >> 8) & 0xff; // ICMP checksum 
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
+	
+	// send the packet out
+	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
+	
+	free(p);
 }
