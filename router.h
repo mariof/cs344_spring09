@@ -6,6 +6,7 @@
 #include "arpQueue.h"
 #include "icmpMsg.h"
 #include "routingTable.h"
+#include "threadPool.h"
 
 #define ETHERNET_HEADER_LENGTH 14
 #define ARP_HEADER_LENGTH 8
@@ -22,6 +23,8 @@ struct sr_router{
 	rtableNode *rtable;
 	int num_ifaces;
 	struct sr_vns_if* ifaces;
+	struct threadWorker* poolHead;
+	struct threadWorker* poolTail;
 };
 
 void processPacket(struct sr_instance* sr,

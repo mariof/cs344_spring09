@@ -73,6 +73,10 @@ void processPacket(struct sr_instance* sr,
 			else if(ipPacket[9] == 6){ // TCP
 				//sr_transport_input(packet);
 			} 
+			else{ // protocol not supported
+				dbgMsg("Transport Protocol not supported");
+				sendICMPDestinationUnreachable(interface, packet, len, 2);
+			}
 		}
 		else{
 			dbgMsg("Forwarding received packet");
