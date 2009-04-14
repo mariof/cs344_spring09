@@ -68,6 +68,7 @@ struct sr_vns_if
     uint32_t ip;
     uint32_t mask;
     uint32_t speed;
+    int enabled; // Added to support CLI
 };
 
 /* ----------------------------------------------------------------------------

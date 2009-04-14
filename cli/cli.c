@@ -11,6 +11,7 @@
 #include "helper.h"
 #include "socket_helper.h"       /* writenstr()                       */
 #include "../sr_base_internal.h" /* struct sr_instance                */
+#include "../router.h"		/* interface enable/disable cli functions */
 #include "../routingTable.h" /* routing table functions */
 #include "../arpCache.h"	/* arp cache functions */
 

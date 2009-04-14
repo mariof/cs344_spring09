@@ -51,3 +51,14 @@ void testList(struct sr_instance* sr);
 void fill_rtable(rtableNode **head);
 
 void sr_transport_input(uint8_t* packet /* borrowed */);
+
+/**
+ * ---------------------------------------------------------------------------
+ * -------------------- CLI Functions ----------------------------------------
+ * ---------------------------------------------------------------------------
+ */
+
+int router_interface_set_enabled( struct sr_instance* sr, const char* name, int enabled );
+struct sr_vns_if* router_lookup_interface_via_ip( struct sr_instance* sr, uint32_t ip );
+struct sr_vns_if* router_lookup_interface_via_name( struct sr_instance* sr, const char* name );
+int router_is_interface_enabled( struct sr_instance* sr, void* intf );

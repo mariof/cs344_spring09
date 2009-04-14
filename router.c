@@ -503,3 +503,82 @@ void fill_rtable(rtableNode **head)
     fclose(rtable_file);
 
 }
+
+
+/**
+ * ---------------------------------------------------------------------------
+ * -------------------- CLI Functions ----------------------------------------
+ * ---------------------------------------------------------------------------
+ */
+
+
+/**
+ * Enables or disables an interface on the router.
+ * @return 0 if name was enabled
+ *         -1 if it does not not exist
+ *         1 if already set to enabled
+ */
+int router_interface_set_enabled( struct sr_instance* sr, const char* name, int enabled ) {
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int i;
+    for(i = 0; i < subsystem->num_ifaces; i++) {
+	if(!strcmp(subsystem->ifaces[i].name, name)) {
+	    if(subsystem->ifaces[i].enabled == enabled)
+		return 1;
+	    else {
+		subsystem->ifaces[i].enabled = enabled;
+		return 0;
+	    }
+	}
+    }
+    return -1;
+}
+
+/**
+ * Returns a pointer to the interface which is assigned the specified IP.
+ *
+ * @return interface, or NULL if the IP does not belong to any interface
+ *         (you'll want to change void* to whatever type you end up using)
+ */
+struct sr_vns_if* router_lookup_interface_via_ip( struct sr_instance* sr,
+                                      uint32_t ip ) {
+    struct sr_vns_if *interface = NULL;
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int i;
+    for(i = 0; i < subsystem->num_ifaces; i++) {
+	if(subsystem->ifaces[i].ip == ip) {
+	    interface = &(subsystem->ifaces[i]);
+	    break;
+	}
+    }
+    return interface;
+}
+
+/**
+ * Returns a pointer to the interface described by the specified name.
+ *
+ * @return interface, or NULL if the name does not match any interface
+ *         (you'll want to change void* to whatever type you end up using)
+ */
+struct sr_vns_if* router_lookup_interface_via_name( struct sr_instance* sr,
+                                        const char* name ) {
+    struct sr_vns_if *interface = NULL;
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int i;
+    for(i = 0; i < subsystem->num_ifaces; i++) {
+	if(!strcmp(subsystem->ifaces[i].name, name)) {
+	    interface = &(subsystem->ifaces[i]);
+	    break;
+	}
+    }
+    return interface;
+}
+
+/**
+ * Returns 1 if the specified interface is up and 0 otherwise.
+ */
+int router_is_interface_enabled( struct sr_instance* sr, void* intf ) {
+    struct sr_vns_if *interface = (struct sr_vns_if*)intf;
+    return interface->enabled;
+}
+
