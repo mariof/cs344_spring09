@@ -104,7 +104,7 @@ char *lp_match(rtableNode **head, uint32_t ip)
     //do LP matching
     rtableNode *node = *head;
     while(node != NULL) {
-	if((node->ip & node->netmask) == (ip && node->netmask)) {
+	if((node->ip & node->netmask) == (ip & node->netmask)) {
 	    //malloc 32 bytes for storing interface
 	    output_if = (char*)malloc((sizeof(char)) * SR_NAMELEN);
 	    strcpy(output_if, node->output_if);
@@ -117,3 +117,23 @@ char *lp_match(rtableNode **head, uint32_t ip)
     return output_if;
 }
 
+uint32_t gw_match(rtableNode **head, uint32_t ip)
+{
+    uint32_t gw = 0;
+
+    //acquire lock
+    pthread_mutex_lock(&rtable_lock);
+
+    //do LP matching
+    rtableNode *node = *head;
+    while(node != NULL) {
+	if((node->ip & node->netmask) == (ip & node->netmask)) {
+	    gw = node->gateway;
+	}
+    }
+    //release lock
+    pthread_mutex_unlock(&rtable_lock);
+
+    //return gateway
+    return gw;
+}
