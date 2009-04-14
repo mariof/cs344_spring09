@@ -43,8 +43,9 @@ struct sr_instance* my_get_sr() {
         sr = malloc( sizeof(*sr) );
         true_or_die( sr!=NULL, "malloc falied in my_get_sr" );
 
-        fprintf( stderr, "not yet implemented: my_get_sr does not create a value for sr->interface_subsystem\n" );
         sr->interface_subsystem = NULL;
+	struct sr_router *subsystem = (struct sr_router*)malloc(sizeof(sr_router));
+	sr_set_subsystem(sr, subsystem);
 
         sr->topo_id = 0;
         strncpy( sr->vhost, "cli", SR_NAMELEN );
@@ -229,15 +230,43 @@ void cli_show_ip() {
 }
 
 void cli_show_ip_arp() {
-    cli_send_str( "not yet implemented: show ARP cache of SR\n" );
+    printARPCache();
 }
 
 void cli_show_ip_intf() {
-    cli_send_str( "not yet implemented: show interfaces on SR\n" );
+    //cli_send_str( "not yet implemented: show interfaces on SR\n" );
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int i;
+    for(i = 0; i < subsystem->num_ifaces; i++) {
+	struct sr_vns_if *node = &(subsystem->ifaces[i]);
+	uint8_t ip_str[4];
+	int2byteIP(node->ip, ip_str);
+	printf("%s IP:%u.%u.%u.%u MAC:%x:%x:%x:%x:%x:%x enabled:%d\n",
+		node->name, 
+		ip_str[0], ip_str[1], ip_str[2], ip_str[3],
+		node->addr[0], node->addr[1], node->addr[2], node->addr[3], node->addr[4], node->addr[5],
+		node->enabled);
+    }
 }
 
 void cli_show_ip_route() {
-    cli_send_str( "not yet implemented: show routing table of SR\n" );
+    //cli_send_str( "not yet implemented: show routing table of SR\n" );
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    rtableNode *node = subsystem->rtable;
+    uint8_t ip[4], gw[4], nm[4];
+    while(node != NULL) {
+	int2byteIP(node->ip, ip);
+	int2byteIP(node->gateway, gw);
+	int2byteIP(node->netmask, nm);
+	printf("IP:%d.%d.%d.%d  Gateway:%d.%d.%d.%d  Netmask:%d.%d.%d.%d  IF:%s Static:%d\n", 
+		    ip[0], ip[1], ip[2], ip[3],
+		    gw[0], gw[1], gw[2], gw[3],
+		    nm[0], nm[1], nm[2], nm[3],
+		    node->output_if, node->is_static);
+	node = node->next;
+    }
 }
 
 void cli_show_opt() {

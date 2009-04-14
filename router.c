@@ -460,11 +460,32 @@ void testList(struct sr_instance* sr){
 	arpReplaceTree(&subsystem->arpTree, NULL);
 }
 
-void inorderPrintTree(arpTreeNode *node){
-	if(node == NULL) return;
-	if(node->left) inorderPrintTree(node->left);
-	printf("ip: %u, mac:%d:%d:...\n", node->ip, node->mac[0], node->mac[1]);
-	if(node->right) inorderPrintTree(node->right);
+void inorderPrintTree(arpTreeNode *node) {
+    char ip_str[4];
+    if(node == NULL) return;
+    if(node->left) inorderPrintTree(node->left);
+    int2byteIP(node->ip, ip_str);
+    printf("ip: %u.%u.%u.%u mac:%x:%x:%x:%x:%x:%x\n", 
+	    ip_str[0], ip_str[1], ip_str[2], ip_str[3],
+	    node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5]);
+    if(node->right) inorderPrintTree(node->right);
+}
+
+void printARPCache() {
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    pthread_mutex_lock(&list_lock);
+    struct arpCacheNode *node = subsystem->arpList;
+    char ip_str[4];
+    while(node != NULL) {
+	node = node->next;
+	int2byteIP(node->ip, ip_str);
+	printf("ip: %u.%u.%u.%u mac:%x:%x:%x:%x:%x:%x static:%d\n", 
+		ip_str[0], ip_str[1], ip_str[2], ip_str[3],
+		node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5],
+		node->is_static);
+    }
+    pthread_mutex_unlock(&list_lock);
 }
 
 void fill_rtable(rtableNode **head)

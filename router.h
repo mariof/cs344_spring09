@@ -43,6 +43,7 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);
 uint32_t getNextHopIP(uint32_t ip);
+void printARPCache();
 
 void* arpCacheRefresh(void *dummy);
 
