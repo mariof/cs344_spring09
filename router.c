@@ -37,50 +37,52 @@ void processPacket(struct sr_instance* sr,
 	    errorMsg("IP Packet too short");
 	    return;
 	}
-    	const uint8_t* ipPacket = &packet[ETHERNET_HEADER_LENGTH];
+    	uint8_t* ipPacket = &packet[ETHERNET_HEADER_LENGTH];
 
 	// check checksum
-	/*uint16_t word16, sum16, csum;
+	uint16_t word16, sum16;
 	uint32_t sum = 0;
 	uint16_t i;
-	uint8_t header_len = (ipPacket[0] >> 4)*4; // no. of bytes*/
+	uint8_t header_len = (ipPacket[0] >> 4)*4; // no. of bytes
 	    
 	// make 16 bit words out of every two adjacent 8 bit words in the packet
 	// and add them up
-	/*for (i = 0; i < header_len; i+=2) {
+	for (i = 0; i < header_len; i+=2) {
 	    word16 = ipPacket[i] & 0xFF;
 	    word16 = (word16 << 8) + (ipPacket[i+1] & 0xFF);
 	    sum += (uint32_t)word16;	
-	}*/
+	}
 
 	// take only 16 bits out of the 32 bit sum and add up the carries
-	/*while (sum >> 16)
+	while (sum >> 16)
 	    sum = (sum & 0xFFFF) + (sum >> 16);
-	sum16 = ~((uint16_t)sum);*/
+	sum16 = ~((uint16_t)sum);
 
-	//if(sum16 != 0) {
+	if(sum16 != 0) {
 	    /* checksum error
 	     * drop packet
 	     * send icmp packet back to the source?
 	     */
-	//}
+	    errorMsg("Checksum error!");
+	}
 	
 	// decrement and check TTL
-	//uint8_t ttl = ipPacket[8];
-	//if(ttl <= 1) {
+	uint8_t ttl = ipPacket[8];
+	if(ttl <= 1) {
 	    /* drop packet
 	     * send icmp packet back to the source
 	     */
-	//}
-	//ipPacket[8] = ttl-1;
+	    errorMsg("TTL went to 0. Should drop packet");
+	}
+	ipPacket[8] = ttl-1;
 
 	// update checksum
-	/*uint32_t csum = ipPacket[9] & 0xFF;
+	uint32_t csum = ipPacket[9] & 0xFF;
 	csum = (csum << 8) + (ipPacket[10] & 0xFF);
 	csum += 0x100;
 	csum = ((csum >> 16) + csum) & 0xFFFF;
 	ipPacket[9] = csum & 0xFF;
-	ipPacket[10] = (csum >> 8) & 0xFF;*/
+	ipPacket[10] = (csum >> 8) & 0xFF;
 
     	uint32_t nextHopIP, dstIP;
     		
