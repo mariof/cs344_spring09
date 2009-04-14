@@ -17,7 +17,7 @@ struct arpQueueItem{
 
 struct arpQueueNode{
 	uint32_t dstIP;
-	const char* interface;
+	char interface[SR_NAMELEN];
 	struct arpQueueItem* head;
 	struct arpQueueItem* tail;
 	struct arpQueueNode* next;

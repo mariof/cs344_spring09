@@ -1,7 +1,7 @@
 #include <pthread.h>
 #include "sr_base_internal.h"
 
-#define NUM_THREADS 5
+#define NUM_THREADS 1
 
 pthread_t workers[NUM_THREADS];
 

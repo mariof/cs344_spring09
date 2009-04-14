@@ -15,7 +15,7 @@ struct arpQueueNode* addQueueNode(uint32_t ip, const char* interface){
 	}
 	
 	cur = (struct arpQueueNode*)malloc(sizeof(struct arpQueueNode));
-	cur->interface = interface;
+	strcpy(cur->interface, interface);
 	cur->dstIP = ip;
 	cur->head = cur->tail = NULL;
 	cur->prev = NULL;
