@@ -108,7 +108,9 @@ char *lp_match(rtableNode **head, uint32_t ip)
 	    //malloc 32 bytes for storing interface
 	    output_if = (char*)malloc((sizeof(char)) * SR_NAMELEN);
 	    strcpy(output_if, node->output_if);
+	    break;
 	}
+	node = node->next;
     }
     //release lock
     pthread_mutex_unlock(&rtable_lock);
@@ -129,6 +131,7 @@ uint32_t gw_match(rtableNode **head, uint32_t ip)
     while(node != NULL) {
 	if((node->ip & node->netmask) == (ip & node->netmask)) {
 	    gw = node->gateway;
+	    break;
 	}
 	node = node->next;
     }
