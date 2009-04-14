@@ -234,7 +234,6 @@ void cli_show_ip_arp() {
 }
 
 void cli_show_ip_intf() {
-    //cli_send_str( "not yet implemented: show interfaces on SR\n" );
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
@@ -251,7 +250,6 @@ void cli_show_ip_intf() {
 }
 
 void cli_show_ip_route() {
-    //cli_send_str( "not yet implemented: show routing table of SR\n" );
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     rtableNode *node = subsystem->rtable;

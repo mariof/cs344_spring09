@@ -125,6 +125,8 @@ void del_route_type(rtableNode **head, int is_static)
 char *lp_match(rtableNode **head, uint32_t ip)
 {
     char *output_if = NULL;
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
     //acquire lock
     pthread_mutex_lock(&rtable_lock);
@@ -135,6 +137,20 @@ char *lp_match(rtableNode **head, uint32_t ip)
 	if((node->ip & node->netmask) == (ip & node->netmask)) {
 	    //malloc 32 bytes for storing interface
 	    output_if = (char*)malloc((sizeof(char)) * SR_NAMELEN);
+	    int i;
+	    int iface_disabled = 0;
+	    for(i = 0; i < subsystem->num_ifaces; i++) {
+		if(!strcmp(subsystem->ifaces[i].name, output_if)) {
+		    if(!(subsystem->ifaces[i].enabled)) {
+			iface_disabled = 1;
+		    }
+		    break;
+		}
+	    }
+
+	    if(iface_disabled)
+		continue;
+
 	    strcpy(output_if, node->output_if);
 	    break;
 	}

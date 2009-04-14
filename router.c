@@ -24,6 +24,19 @@ void processPacket(struct sr_instance* sr,
 {
     int i;
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int iface_disabled = 0;
+    for(i = 0; i < subsystem->num_ifaces; i++) {
+	if(!strcmp(subsystem->ifaces[i].name, interface)) {
+	    if(!(subsystem->ifaces[i].enabled)) {
+		iface_disabled = 1;
+	    }
+	    break;
+	}
+    }
+
+    if(iface_disabled) {
+	return;
+    }
         
     if (len < ETHERNET_HEADER_LENGTH){
     	errorMsg("Ethernet Packet too short");
@@ -461,7 +474,7 @@ void testList(struct sr_instance* sr){
 }
 
 void inorderPrintTree(arpTreeNode *node) {
-    char ip_str[4];
+    uint8_t ip_str[4];
     if(node == NULL) return;
     if(node->left) inorderPrintTree(node->left);
     int2byteIP(node->ip, ip_str);
@@ -476,7 +489,7 @@ void printARPCache() {
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     pthread_mutex_lock(&list_lock);
     struct arpCacheNode *node = subsystem->arpList;
-    char ip_str[4];
+    uint8_t ip_str[4];
     while(node != NULL) {
 	node = node->next;
 	int2byteIP(node->ip, ip_str);
