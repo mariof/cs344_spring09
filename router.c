@@ -496,7 +496,7 @@ void fill_rtable(rtableNode **head)
 	    nm_32 += (uint32_t)nm[i];
 	}
 	printf("%x  %x  %x  %s\n", ip_32, gw_32, nm_32, output_if);
-	insert_rtable_node(head, ntohl(ip_32), ntohl(nm_32), ntohl(gw_32), output_if);
+	insert_rtable_node(head, ntohl(ip_32), ntohl(nm_32), ntohl(gw_32), output_if, 1);
 	ip_32 = gw_32 = nm_32 = 0;
     }
 
