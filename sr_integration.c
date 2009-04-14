@@ -83,6 +83,9 @@ void sr_integ_hw_setup(struct sr_instance* sr)
     // Load routing table
     fill_rtable(&(subsystem->rtable));
 
+	// Load thread pool system
+	initThreadPool();
+
     testList(sr);
     
 } /* -- sr_integ_hw_setup -- */
@@ -114,7 +117,8 @@ void sr_integ_input(struct sr_instance* sr,
 	
     printf(" ** sr_integ_input(..) called \n");
 
-	processPacket(sr, packet, len, interface);		
+//	processPacket(sr, packet, len, interface);		
+	addThreadQueue(sr, packet, len, interface);
 
 } /* -- sr_integ_input -- */
 
@@ -202,6 +206,8 @@ void sr_integ_destroy(struct sr_instance* sr)
 
     free(subsystem->ifaces);
     free(subsystem);
+    
+    destroyThreadPool();
     
     pthread_rwlock_destroy(&tree_lock);
     pthread_mutex_destroy(&list_lock);

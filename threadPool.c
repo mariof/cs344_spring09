@@ -1,8 +1,15 @@
 #include "router.h"
 #include <string.h>
+#include <sched.h>
 
+// initializes thread pool
 void initThreadPool(){
     int i = 0;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	subsystem->poolHead = subsystem->poolTail = NULL;
+
     pthread_mutex_init(&pool_lock, NULL);
     
 	while(i < NUM_THREADS){    	
@@ -11,20 +18,69 @@ void initThreadPool(){
     }    
 }
 
+
+// destroys thread pool (joins all spawned threads)
 void destroyThreadPool(){
-	
-	// add dummy node to queue and join threads
+	int i;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	for(i = 0; i < NUM_THREADS; i++){
+		addStopNode(&subsystem->poolHead, &subsystem->poolTail);
+	}
+	for(i = 0; i < NUM_THREADS; i++){
+		pthread_join(workers[i], NULL);
+	}
+
+	pthread_mutex_lock(&pool_lock);
+	struct threadWorker* cur = subsystem->poolHead;
+	struct threadWorker* tmp;
+	while(cur){
+		if(cur->packet) free(cur->packet);
+		tmp = cur;
+		cur = cur->next;
+		free(tmp);
+	}
+	pthread_mutex_unlock(&pool_lock);
+
     pthread_mutex_destroy(&pool_lock);
 }
 
+// main thread function
 void* startThread(void* dummy){
+	struct threadWorker *w;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
+	while(1){
+		w = takeThreadQueue(&subsystem->poolHead, &subsystem->poolTail);
+		if(w){
+			if(w->stop_work){
+				if(w->packet) free(w->packet);
+				free(w);
+				return NULL;			
+			}
+			else{
+				processPacket(sr, w->packet, w->len, w->interface);				
+				if(w->packet) free(w->packet);
+				free(w);
+			}
+		}
+		else{				
+			sched_yield();
+		}
+	}
 	return NULL;
 }
 
-void addThreadQueue(struct threadWorker** head, struct threadWorker** tail, struct sr_instance* sr, const uint8_t* packet, unsigned len, const char* interface){
+// adds a job to the queue (a packet to process)
+void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len, const char* interface){
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	struct threadWorker** head = &subsystem->poolHead;
+	struct threadWorker** tail = &subsystem->poolTail;
+	
 	struct threadWorker* node = (struct threadWorker*)malloc(sizeof(struct threadWorker));
 	
-	node->sr = sr;
 	node->packet = (uint8_t*)malloc(len*sizeof(uint8_t));
 	memcpy(node->packet, packet, len);
 	node->len = len;
@@ -47,10 +103,10 @@ void addThreadQueue(struct threadWorker** head, struct threadWorker** tail, stru
 
 }
 
+// adds a stop node to the queue (this node causes all spawned threads to exit)
 void addStopNode(struct threadWorker** head, struct threadWorker** tail){
 	struct threadWorker* node = (struct threadWorker*)malloc(sizeof(struct threadWorker));
-	
-	node->sr = NULL;
+
 	node->packet = NULL;
 	node->len = 0;
 	strcpy(node->interface, "");
@@ -71,6 +127,7 @@ void addStopNode(struct threadWorker** head, struct threadWorker** tail){
 	pthread_mutex_unlock(&pool_lock);
 }
 
+// takes next packet in the queue for processing, whoever calls this gets the ownership of the returned node
 struct threadWorker* takeThreadQueue(struct threadWorker** head, struct threadWorker** tail){
 	struct threadWorker *retVal;
 	pthread_mutex_lock(&pool_lock);
