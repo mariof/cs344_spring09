@@ -13,9 +13,11 @@ void initThreadPool(){
     pthread_mutex_init(&pool_lock, NULL);
     
 	while(i < NUM_THREADS){    	
-    	if (pthread_create(&workers[i], NULL, startThread, NULL) == 0)
+    	if (pthread_create(&workers[i], NULL, startThread, NULL) == 0){
     		i++;
+    	}
     }    
+    dbgMsg("Thread Pool Initialized");
 }
 
 
@@ -44,6 +46,7 @@ void destroyThreadPool(){
 	pthread_mutex_unlock(&pool_lock);
 
     pthread_mutex_destroy(&pool_lock);
+    dbgMsg("Tread Pool destroyed");
 }
 
 // main thread function
@@ -55,6 +58,7 @@ void* startThread(void* dummy){
 	while(1){
 		w = takeThreadQueue(&subsystem->poolHead, &subsystem->poolTail);
 		if(w){
+			dbgMsg("Job taken off queue");
 			if(w->stop_work){
 				if(w->packet) free(w->packet);
 				free(w);
@@ -76,8 +80,6 @@ void* startThread(void* dummy){
 // adds a job to the queue (a packet to process)
 void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len, const char* interface){
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-	struct threadWorker** head = &subsystem->poolHead;
-	struct threadWorker** tail = &subsystem->poolTail;
 	
 	struct threadWorker* node = (struct threadWorker*)malloc(sizeof(struct threadWorker));
 	
@@ -89,6 +91,8 @@ void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len,
 	node->prev = node->next = NULL;
 	
 	pthread_mutex_lock(&pool_lock);
+	struct threadWorker** head = &subsystem->poolHead;
+	struct threadWorker** tail = &subsystem->poolTail;
 	
 	if(*head == NULL){
 		*head = node;
@@ -98,9 +102,9 @@ void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len,
 		(*head)->prev = node;
 		node->next = *head;
 	}	
-		
-	pthread_mutex_unlock(&pool_lock);
 
+	pthread_mutex_unlock(&pool_lock);
+	dbgMsg("Job put in queue");
 }
 
 // adds a stop node to the queue (this node causes all spawned threads to exit)
@@ -130,6 +134,7 @@ void addStopNode(struct threadWorker** head, struct threadWorker** tail){
 // takes next packet in the queue for processing, whoever calls this gets the ownership of the returned node
 struct threadWorker* takeThreadQueue(struct threadWorker** head, struct threadWorker** tail){
 	struct threadWorker *retVal;
+
 	pthread_mutex_lock(&pool_lock);
 	if(*tail == NULL){
 		retVal = NULL;

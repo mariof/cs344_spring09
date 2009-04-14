@@ -13,8 +13,8 @@
 #define IP_HEADER_LENGTH 20
 #define ICMP_HEADER_LENGTH 4
 
-#define ARP_CACHE_REFRESH 20
-#define ARP_QUEUE_REFRESH 5
+#define ARP_CACHE_REFRESH 20 // 20
+#define ARP_QUEUE_REFRESH 5  // 5
 
 struct sr_router{
 	struct arpQueueNode* arpQueue;
@@ -28,7 +28,7 @@ struct sr_router{
 };
 
 void processPacket(struct sr_instance* sr,
-        const uint8_t * packet/* borrowed */,
+        uint8_t * packet/* borrowed */,
         unsigned int len,
         const char* interface/* borrowed */);
         

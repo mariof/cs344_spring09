@@ -18,7 +18,7 @@ void inorderPrintTree(arpTreeNode *node);
 
 // this function processes all input packets
 void processPacket(struct sr_instance* sr,
-        const uint8_t * packet/* borrowed */,
+        uint8_t * packet/* borrowed */,
         unsigned int len,
         const char* interface/* borrowed */)
 {
@@ -323,10 +323,18 @@ void* arpCacheRefresh(void *dummy){
 
 // given destination IP, returns next hop ip
 uint32_t getNextHopIP(uint32_t ip){
+	uint32_t retVal;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-
-	return gw_match(&subsystem->rtable, ip);
+	dbgMsg("Looking up IP in routing table");
+	retVal = gw_match(&subsystem->rtable, ip);
+	
+	uint8_t si[4], di[4];
+	int2byteIP(ip, si);
+	int2byteIP(retVal, di);
+	
+	printf("from: %u.%u.%u.%u to: %u.%u.%u.%u\n", si[0], si[1], si[2], si[3], di[0], di[1], di[2], di[3]);
+	return retVal;
 }
 
 // Sends out packet to next hop ip address "ip" out the "interface". Packet has to have a placeholder for Ethernet header. Packet is just borrowed (not destroyed here)

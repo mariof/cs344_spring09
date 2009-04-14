@@ -8,8 +8,9 @@ struct arpQueueNode* addQueueNode(uint32_t ip, const char* interface){
 
 	struct arpQueueNode *cur = subsystem->arpQueue;
 	while(cur){
-		if( !strcmp(interface, cur->interface) && (ip == cur->dstIP) )
+		if( !strcmp(interface, cur->interface) && (ip == cur->dstIP) ){
 			return cur;
+		}
 		cur = cur->next;
 	}
 	
@@ -29,6 +30,7 @@ struct arpQueueNode* addQueueNode(uint32_t ip, const char* interface){
 void queuePacket(uint8_t* packet, unsigned len, const char* interface, uint32_t dstIP){
 	int i;
 	pthread_mutex_lock(&queue_lock);
+
 	struct arpQueueNode *node = addQueueNode(dstIP, interface);
 	
 	// create new item
@@ -45,6 +47,7 @@ void queuePacket(uint8_t* packet, unsigned len, const char* interface, uint32_t 
 	node->head = item;
 	if(node->tail == NULL) node->tail = item;
 	pthread_mutex_unlock(&queue_lock);	
+
 }
 
 // flush a particular ip queue, caller must hold queue lock
@@ -104,6 +107,7 @@ void* arpQueueRefresh(void* dummy){
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
 	while(1){
+		loop_begin:
 		pthread_mutex_lock(&queue_lock);
 		struct arpQueueNode* cur = subsystem->arpQueue;
 		while(cur){
@@ -121,8 +125,10 @@ void* arpQueueRefresh(void* dummy){
 					}
 					cur->tail = cur->tail->prev;
 					// send out ICMP (host unreachable)
+					pthread_mutex_unlock(&queue_lock);
 					sendICMPDestinationUnreachable(cur->interface, curTmp->packet, curTmp->len, 1);
 					free(curTmp);			
+					goto loop_begin; // no way anoyone is going to convince me that there is a better way to to this (mariof)
 				}
 				else{
 					break;

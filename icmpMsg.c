@@ -31,13 +31,13 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 		return;
 	}
 	
-	dstIP = requestPacket[12] * 256 * 256 * 256 +
-			requestPacket[13] * 256 * 256 +
-			requestPacket[14] * 256 +
-			requestPacket[15] * 1;    				
+	dstIP = requestPacket[ETHERNET_HEADER_LENGTH + 12] * 256 * 256 * 256 +
+			requestPacket[ETHERNET_HEADER_LENGTH + 13] * 256 * 256 +
+			requestPacket[ETHERNET_HEADER_LENGTH + 14] * 256 +
+			requestPacket[ETHERNET_HEADER_LENGTH + 15] * 1;    				
 	dstIP = ntohl(dstIP);
 
-//	for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
+	//for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
 	
 	// Ethernet header
 	for(i = 0; i < ETHERNET_HEADER_LENGTH; i++) p[i] = 0;
@@ -75,8 +75,11 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
+	dbgMsg("ICMP: Sending Echo Reply");
 	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
 	
+//	for(i = 0; i < len; i++) printf("%d: %d\n", i, p[i]);
+		
 	free(p);
 }
 
@@ -110,10 +113,10 @@ void sendICMPDestinationUnreachable(const char* interface, const uint8_t* origin
 		return;
 	}
 	
-	dstIP = originalPacket[12] * 256 * 256 * 256 +
-			originalPacket[13] * 256 * 256 +
-			originalPacket[14] * 256 +
-			originalPacket[15] * 1;    				
+	dstIP = originalPacket[ETHERNET_HEADER_LENGTH + 12] * 256 * 256 * 256 +
+			originalPacket[ETHERNET_HEADER_LENGTH + 13] * 256 * 256 +
+			originalPacket[ETHERNET_HEADER_LENGTH + 14] * 256 +
+			originalPacket[ETHERNET_HEADER_LENGTH + 15] * 1;    				
 	dstIP = ntohl(dstIP);
 
 //	for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
@@ -156,8 +159,8 @@ void sendICMPDestinationUnreachable(const char* interface, const uint8_t* origin
 	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
+	dbgMsg("ICMP: Sending destination unreachable");
 	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, myLen);
-	
 	free(p);
 }
 
@@ -173,10 +176,10 @@ void sendICMPTimeExceeded(const char* interface, const uint8_t* originalPacket, 
 		return;
 	}
 	
-	dstIP = originalPacket[12] * 256 * 256 * 256 +
-			originalPacket[13] * 256 * 256 +
-			originalPacket[14] * 256 +
-			originalPacket[15] * 1;    				
+	dstIP = originalPacket[ETHERNET_HEADER_LENGTH + 12] * 256 * 256 * 256 +
+			originalPacket[ETHERNET_HEADER_LENGTH + 13] * 256 * 256 +
+			originalPacket[ETHERNET_HEADER_LENGTH + 14] * 256 +
+			originalPacket[ETHERNET_HEADER_LENGTH + 15] * 1;    				
 	dstIP = ntohl(dstIP);
 
 //	for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
@@ -217,7 +220,7 @@ void sendICMPTimeExceeded(const char* interface, const uint8_t* originalPacket, 
 	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
+	dbgMsg("ICMP: Sending TTL Exceeded");
 	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, myLen);
-	
 	free(p);
 }
