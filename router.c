@@ -277,8 +277,10 @@ void* arpCacheRefresh(void *dummy){
 
 // given destination IP, returns next hop ip
 uint32_t getNextHopIP(uint32_t ip){
-	// Nikhil, can you write this?
-	return ip;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	return gw_match(&subsystem->rtable, ip);
 }
 
 // Sends out packet to next hop ip address "ip" out the "interface". Packet has to have a placeholder for Ethernet header. Packet is just borrowed (not destroyed here)
