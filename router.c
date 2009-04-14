@@ -109,14 +109,13 @@ void processPacket(struct sr_instance* sr,
 	    return;
 	}
 
+	//XXX - potential memory leak. Need to fix this.
 	out_if = lp_match(&(subsystem->rtable), dstIP); //output interface
 	if(!out_if) {
 	    errorMsg("Destination network unreachable. Dropping packet");
 	    sendICMPDestinationUnreachable(interface, packet, len, 0);
 	    return;
 	}
-	free(out_if);
-
 
 	// find the interface by name
 	for(i = 0; i < subsystem->num_ifaces; i++){
@@ -147,7 +146,6 @@ void processPacket(struct sr_instance* sr,
 	    sendIPpacket(sr, out_if, nextHopIP, (uint8_t*)packet, len);
 	}		
 
-    
     }
     else if (packet[12] == 8 && packet[13] == 6){ // ARP
 	    if (len < ETHERNET_HEADER_LENGTH + ARP_HEADER_LENGTH){
