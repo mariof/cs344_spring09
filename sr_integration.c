@@ -79,6 +79,10 @@ void sr_integ_hw_setup(struct sr_instance* sr)
     if( pthread_create(&arpQueueRefreshThread, NULL, arpQueueRefresh, NULL) == 0 )
     	pthread_detach(arpQueueRefreshThread);
 
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    // Load routing table
+    fill_rtable(&(subsystem->rtable));
+
     testList(sr);
     
 } /* -- sr_integ_hw_setup -- */
@@ -187,6 +191,15 @@ void sr_integ_destroy(struct sr_instance* sr)
     printf(" ** sr_integ_destroy(..) called \n");
     
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+    /* free routing table */
+    rtableNode *node = subsystem->rtable;
+    while(node != NULL) {
+	rtableNode *next_node = node->next;
+	free(node);
+	node = next_node;
+    }
+
     free(subsystem->ifaces);
     free(subsystem);
     
@@ -214,8 +227,6 @@ uint32_t sr_integ_findsrcip(uint32_t dest /* nbo */)
     fprintf(stderr, "!!! given a destination                                 !!!\n ");
     fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
-    assert(0);
-
     /* --
      * e.g.
      *
@@ -224,6 +235,23 @@ uint32_t sr_integ_findsrcip(uint32_t dest /* nbo */)
      *                              sr_get_subsystem(sr);
      * return my_findsrcip(mr, dest);
      * -- */
+    struct sr_instance* sr = sr_get_global_instance(NULL);
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+    // Get source interface from the routing table
+    char *src_if = lp_match(&(subsystem->rtable), ntohl(dest));
+
+    // Get IP address of the if from the sr_router struct
+    if(src_if == NULL)
+	return 0;
+
+    int i;
+    for(i = 0; i < subsystem->num_ifaces; i++){
+	if (!strcmp(src_if, subsystem->ifaces[i].name)) {
+	    // Convert IP address to network order and return
+	    return htonl(subsystem->ifaces[i].ip);
+	}
+    }
 
     return 0;
 } /* -- ip_findsrcip -- */

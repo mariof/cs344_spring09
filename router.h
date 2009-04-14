@@ -36,4 +36,4 @@ void* arpCacheRefresh(void *dummy);
 
 void testList(struct sr_instance* sr);
 
-void fill_rtable();
+void fill_rtable(rtableNode **head);
