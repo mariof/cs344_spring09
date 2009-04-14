@@ -83,8 +83,8 @@ void processPacket(struct sr_instance* sr,
 	csum = (csum << 8) + (ipPacket[11] & 0xFF);
 	csum += 0x100;
 	csum = ((csum >> 16) + csum) & 0xFFFF;
-	ipPacket[10] = csum & 0xFF;
-	ipPacket[11] = (csum >> 8) & 0xFF;
+	ipPacket[11] = csum & 0xFF;
+	ipPacket[10] = (csum >> 8) & 0xFF;
 
     	uint32_t nextHopIP, dstIP;
 	char *out_if = NULL;
