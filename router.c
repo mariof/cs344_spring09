@@ -43,7 +43,7 @@ void processPacket(struct sr_instance* sr,
 	uint16_t word16, sum16;
 	uint32_t sum = 0;
 	uint16_t i;
-	uint8_t header_len = (ipPacket[0] >> 4)*4; // no. of bytes
+	uint8_t header_len = (ipPacket[0] & 0x0F)*4; // no. of bytes
 	    
 	// make 16 bit words out of every two adjacent 8 bit words in the packet
 	// and add them up
@@ -56,7 +56,7 @@ void processPacket(struct sr_instance* sr,
 	// take only 16 bits out of the 32 bit sum and add up the carries
 	while (sum >> 16)
 	    sum = (sum & 0xFFFF) + (sum >> 16);
-	sum16 = ~((uint16_t)sum);
+	sum16 = ~((uint16_t)(sum & 0xFFFF));
 
 	if(sum16 != 0) {
 	    /* checksum error
