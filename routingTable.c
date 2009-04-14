@@ -1,6 +1,6 @@
 #include "routingTable.h"
 
-void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if)
+void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if, int is_static)
 {
     //check output_if size
     if(strlen(output_if) >= SR_NAMELEN) {
@@ -13,6 +13,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
     node->netmask = netmask;
     node->gateway = gateway;
     strcpy(node->output_if, output_if);
+    node->is_static = is_static;
     node->next = node->prev = NULL;
 
     //acquire lock
@@ -41,7 +42,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
 	}
 
 	//check for equality to prevent adding duplicate nodes
-	if((cnode->ip == ip) && ((uint8_t)cnode->netmask == (uint8_t)netmask)) {
+	if((cnode->ip == ip) && ((uint8_t)cnode->netmask == (uint8_t)netmask) && (cnode->is_static == is_static)) {
 	    cnode->gateway = gateway;
 	    strcpy(cnode->output_if, output_if);
 	    free(node);
@@ -63,7 +64,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
     return;
 }
 
-void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask)
+void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static)
 {
     //acquire lock
     pthread_mutex_lock(&rtable_lock);
@@ -71,7 +72,30 @@ void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask)
     // search node
     rtableNode *node = *head;
     while(node != NULL) {
-	if(node->ip == ip && node->netmask == netmask) {
+	if(node->ip == ip && node->netmask == netmask && node->is_static == is_static) {
+	    //delete node
+	    if(node->prev != NULL) {
+		(node->prev)->next = node->next;
+	    }
+	    if(node->next != NULL) {
+		(node->next)->prev = node->prev;
+	    }
+	    free(node);
+	}
+    }
+    //release lock
+    pthread_mutex_unlock(&rtable_lock);
+}
+
+void del_route_type(rtableNode **head, int is_static)
+{
+    //acquire lock
+    pthread_mutex_lock(&rtable_lock);
+
+    // search node
+    rtableNode *node = *head;
+    while(node != NULL) {
+	if(node->is_static == is_static) {
 	    //delete node
 	    if(node->prev != NULL) {
 		(node->prev)->next = node->next;
