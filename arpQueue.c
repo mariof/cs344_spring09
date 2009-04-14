@@ -120,6 +120,8 @@ void* arpQueueRefresh(void* dummy){
 						delFlag = 1;
 					}
 					cur->tail = cur->tail->prev;
+					// send out ICMP (host unreachable)
+					sendICMPDestinationUnreachable(cur->interface, curTmp->packet, curTmp->len, 1);
 					free(curTmp);			
 				}
 				else{
