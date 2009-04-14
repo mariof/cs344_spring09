@@ -46,9 +46,9 @@ void processPacket(struct sr_instance* sr,
     			 	74 * 256 +
 				 	11 * 1; 
    				
-    	dstIP = ipPacket[16] * 256 * 256 * 256 +
-   				ipPacket[17] * 256 * 256 +
-    			ipPacket[18] * 256 +
+		dstIP = ipPacket[16] * 256 * 256 * 256 +
+				ipPacket[17] * 256 * 256 +
+				ipPacket[18] * 256 +
 				ipPacket[19] * 1; 
    				
 		testIP = ntohl(testIP);
@@ -65,17 +65,21 @@ void processPacket(struct sr_instance* sr,
 		}		
 		uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
 
-
 		if(myIP == dstIP){
 			dbgMsg("Received packet destined for the router");
-			//sr_transport_input(packet);
+			if(ipPacket[9] == 1){ // ICMP
+				processICMP(interface, packet, len);
+			}
+			else if(ipPacket[9] == 6){ // TCP
+				//sr_transport_input(packet);
+			} 
 		}
 		else{
 			dbgMsg("Forwarding received packet");
 		}		
 		
 		// just testing
-		sendIPpacket(sr, interface, testIP, (uint8_t*)packet, len);
+		//sendIPpacket(sr, interface, testIP, (uint8_t*)packet, len);
     
     }
     else if (packet[12] == 8 && packet[13] == 6){ // ARP
@@ -198,6 +202,18 @@ void int2byteIP(uint32_t ip, uint8_t *byteIP){
 	byteIP[0] = (uint8_t)(nip % 256);	
 }
 
+uint32_t getInterfaceIP(const char* interface){
+	int i;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	// find the interface by name
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if (!strcmp(interface, subsystem->ifaces[i].name))
+			break;
+	}
+	return subsystem->ifaces[i].ip;
+}
+
 // returns a 60 byte ARP request packet, use sendARPrequest instead
 uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
 	int i, j;
@@ -255,8 +271,13 @@ void* arpCacheRefresh(void *dummy){
 	}
 }
 
+// given destination IP, returns next hop ip
+uint32_t getNextHopIP(uint32_t ip){
+	// Nikhil, can you write this?
+	return ip;
+}
 
-// Sends out packet to address ip out the "interface". Packet has to have a placeholder for Ethernet header. Packet is just borrowed (not destroyed here)
+// Sends out packet to next hop ip address "ip" out the "interface". Packet has to have a placeholder for Ethernet header. Packet is just borrowed (not destroyed here)
 void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, uint8_t* packet, unsigned len){
 	int i,j;
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
