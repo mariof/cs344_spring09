@@ -20,6 +20,7 @@ uint16_t checksum(uint16_t* data, unsigned len){
 	return ~(acc & 0xffff);
 }
 
+// sends out Ping Response
 void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsigned len){
 	int i;
 	uint8_t *p = (uint8_t*)malloc(len*sizeof(uint8_t));
@@ -98,7 +99,7 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 14	Host precedence violation. Sent by the first hop router to a host to indicate that a requested precedence is not permitted for the particular combination of source/destination host or network, upper layer protocol, and source/destination port.
 15	Precedence cutoff in effect. The network operators have imposed a minimum level of precedence required for operation, the datagram was sent with a precedence below this level.
 */
-void sendICMPDestinationUnreachable(const char* interface, uint8_t* originalPacket, unsigned len, int code){
+void sendICMPDestinationUnreachable(const char* interface, const uint8_t* originalPacket, unsigned len, int code){
 	int i, j;
 	int myLen = 70;
 	uint8_t *p = (uint8_t*)malloc(myLen*sizeof(uint8_t));
@@ -160,7 +161,8 @@ void sendICMPDestinationUnreachable(const char* interface, uint8_t* originalPack
 	free(p);
 }
 
-void sendICMPTimeExceeded(const char* interface, uint8_t* originalPacket, unsigned len){
+// sends out a TTL expired ICMP message
+void sendICMPTimeExceeded(const char* interface, const uint8_t* originalPacket, unsigned len){
 	int i, j;
 	int myLen = 70; 
 	uint8_t *p = (uint8_t*)malloc(myLen*sizeof(uint8_t));
