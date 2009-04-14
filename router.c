@@ -39,51 +39,54 @@ void processPacket(struct sr_instance* sr,
 	    }
     	const uint8_t* ipPacket = &packet[ETHERNET_HEADER_LENGTH];
 
-    	uint32_t testIP, dstIP;
+    	uint32_t nextHopIP, dstIP;
     		
-    	testIP =	172 * 256 * 256 * 256 +
-   				 	24 * 256 * 256 +
-    			 	74 * 256 +
-				 	11 * 1; 
-   				
-		dstIP = ipPacket[16] * 256 * 256 * 256 +
-				ipPacket[17] * 256 * 256 +
-				ipPacket[18] * 256 +
-				ipPacket[19] * 1; 
-   				
-		testIP = ntohl(testIP);
-		dstIP = ntohl(dstIP);
+	/*uint32_t testIP;
+	testIP =	172 * 256 * 256 * 256 +
+	    24 * 256 * 256 +
+	    74 * 256 +
+	    11 * 1; 
+	testIP = ntohl(testIP);*/
 
-		// find the interface by name
-		for(i = 0; i < subsystem->num_ifaces; i++){
-			if (!strcmp(interface, subsystem->ifaces[i].name))
-				break;
-		}
-		if (i >= subsystem->num_ifaces){
-			errorMsg("Given interfaces does not exist");
-			return;
-		}		
-		uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
+	dstIP = ipPacket[16] * 256 * 256 * 256 +
+	    ipPacket[17] * 256 * 256 +
+	    ipPacket[18] * 256 +
+	    ipPacket[19] * 1; 
+	dstIP = ntohl(dstIP); // dstIP in hbo
 
-		if(myIP == dstIP){
-			dbgMsg("Received packet destined for the router");
-			if(ipPacket[9] == 1){ // ICMP
-				processICMP(interface, packet, len);
-			}
-			else if(ipPacket[9] == 6){ // TCP
-				//sr_transport_input(packet);
-			} 
-			else{ // protocol not supported
-				dbgMsg("Transport Protocol not supported");
-				sendICMPDestinationUnreachable(interface, packet, len, 2);
-			}
-		}
-		else{
-			dbgMsg("Forwarding received packet");
-		}		
-		
-		// just testing
-		//sendIPpacket(sr, interface, testIP, (uint8_t*)packet, len);
+	nextHopIP = gw_match(&(subsystem->rtable), dstIP); //nextHopIP in hbo
+
+
+	// find the interface by name
+	for(i = 0; i < subsystem->num_ifaces; i++){
+	    if (!strcmp(interface, subsystem->ifaces[i].name))
+		break;
+	}
+	if (i >= subsystem->num_ifaces){
+	    errorMsg("Given interfaces does not exist");
+	    return;
+	}		
+	uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
+
+	if(myIP == dstIP){
+	    dbgMsg("Received packet destined for the router");
+	    if(ipPacket[9] == 1){ // ICMP
+		processICMP(interface, packet, len);
+	    }
+	    else if(ipPacket[9] == 6){ // TCP
+		//sr_transport_input(packet);
+	    } 
+	    else{ // protocol not supported
+		dbgMsg("Transport Protocol not supported");
+		sendICMPDestinationUnreachable(interface, packet, len, 2);
+	    }
+	}
+	else{
+	    dbgMsg("Forwarding received packet");
+	}		
+
+	// just testing
+	sendIPpacket(sr, interface, nextHopIP, (uint8_t*)packet, len);
     
     }
     else if (packet[12] == 8 && packet[13] == 6){ // ARP
