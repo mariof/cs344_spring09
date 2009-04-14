@@ -467,7 +467,7 @@ void fill_rtable(rtableNode **head)
 		    gw[0], gw[1], gw[2], gw[3],
 		    nm[0], nm[1], nm[2], nm[3],
 		    output_if);
-	for(i = 0; i < 3; i++) {
+	for(i = 0; i < 4; i++) {
 	    ip_32 = ip_32 << 8;
 	    ip_32 += (uint32_t)ip[i];
 	    gw_32 = gw_32 << 8;
@@ -477,6 +477,7 @@ void fill_rtable(rtableNode **head)
 	}
 	printf("%x  %x  %x  %s\n", ip_32, gw_32, nm_32, output_if);
 	insert_rtable_node(head, ntohl(ip_32), ntohl(nm_32), ntohl(gw_32), output_if);
+	ip_32 = gw_32 = nm_32 = 0;
     }
 
     fclose(rtable_file);
