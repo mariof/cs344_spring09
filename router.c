@@ -77,12 +77,12 @@ void processPacket(struct sr_instance* sr,
 	ipPacket[8] = ttl-1;
 
 	// update checksum
-	uint32_t csum = ipPacket[9] & 0xFF;
-	csum = (csum << 8) + (ipPacket[10] & 0xFF);
+	uint32_t csum = ipPacket[10] & 0xFF;
+	csum = (csum << 8) + (ipPacket[11] & 0xFF);
 	csum += 0x100;
 	csum = ((csum >> 16) + csum) & 0xFFFF;
-	ipPacket[9] = csum & 0xFF;
-	ipPacket[10] = (csum >> 8) & 0xFF;
+	ipPacket[10] = csum & 0xFF;
+	ipPacket[11] = (csum >> 8) & 0xFF;
 
     	uint32_t nextHopIP, dstIP;
     		
