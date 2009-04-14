@@ -53,7 +53,8 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 	p[i++] = 64; // TTL
 	p[i++] = 1; // protocol (ICMP)
 	p[i++] = 0; p[i++] = 0; // checksum (calculated later)
-	int2byteIP(getInterfaceIP(interface), &p[i]); i += 4; // source IP
+	//int2byteIP(getInterfaceIP(interface), &p[i]); i += 4; // source IP
+	memcpy(&p[i], &requestPacket[ETHERNET_HEADER_LENGTH + 16], 4); i+=4; // source IP
 	int2byteIP(dstIP, &p[i]); i+=4; // destination IP
 	
 	// IP checksum

@@ -116,16 +116,12 @@ void processPacket(struct sr_instance* sr,
 	    return;
 	}
 
-	// find the interface by name
+	// find the interface with target IP
+	uint32_t myIP = 0;
 	for(i = 0; i < subsystem->num_ifaces; i++){
-	    if (!strcmp(interface, subsystem->ifaces[i].name))
-		break;
+		myIP = subsystem->ifaces[i].ip; // host byte order
+		if(myIP == dstIP) break;
 	}
-	if (i >= subsystem->num_ifaces){
-	    errorMsg("Given interfaces does not exist");
-	    return;
-	}		
-	uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
 
 	if(myIP == dstIP){
 	    dbgMsg("Received packet destined for the router");
