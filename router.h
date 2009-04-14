@@ -49,3 +49,5 @@ void* arpCacheRefresh(void *dummy);
 void testList(struct sr_instance* sr);
 
 void fill_rtable(rtableNode **head);
+
+void sr_transport_input(uint8_t* packet /* borrowed */);

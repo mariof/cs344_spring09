@@ -129,7 +129,7 @@ void processPacket(struct sr_instance* sr,
 		processICMP(interface, packet, len);
 	    }
 	    else if(ipPacket[9] == 6){ // TCP
-		//sr_transport_input(packet);
+		sr_transport_input(packet);
 	    } 
 	    else{ // protocol not supported
 		dbgMsg("Transport Protocol not supported");
