@@ -155,7 +155,7 @@ void sendICMPDestinationUnreachable(const char* interface, uint8_t* originalPack
 	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
-	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
+	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, myLen);
 	
 	free(p);
 }
@@ -215,7 +215,7 @@ void sendICMPTimeExceeded(const char* interface, uint8_t* originalPacket, unsign
 	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
-	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
+	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, myLen);
 	
 	free(p);
 }
