@@ -1,4 +1,4 @@
-#include "arpCache.h"
+#include "router.h"
 
 /* 
 ARP cache is kept as a sorted linked list, however since many more lookups into the cache are expected than cache modifications, a binary search tree is generated from the list to provide faster lookups.
@@ -278,4 +278,118 @@ void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree){
 	*root = newTree;
 	pthread_rwlock_unlock(&tree_lock);
 	if(oldTree) arpDestroyTree(oldTree);
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * -------------------- CLI Functions ----------------------------------------
+ * ---------------------------------------------------------------------------
+ */
+ 
+ 
+ /**
+ * Add a static entry to the static ARP cache.
+ * @return 1 if succeeded (fails if the max # of static entries are already
+ *         in the cache).
+ */
+int arp_cache_static_entry_add( struct sr_instance* sr,
+                                uint32_t ip,
+                                uint8_t* mac ) {
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	arpInsert(&subsystem->arpList, ip, mac, 1);
+    arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
+
+    return 1; /* succeede */
+}
+
+/**
+ * Remove a static entry to the static ARP cache.
+ * @return 1 if succeeded (false if ip wasn't in the cache as a static entry)
+ */
+int arp_cache_static_entry_remove( struct sr_instance* sr, uint32_t ip ) {
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	arpNode *node = arpFindIP(subsystem->arpList, ip);
+	if(node->is_static == 1){
+		arpDeleteIP(&subsystem->arpList, ip);		
+		arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
+		return 1;
+	}
+
+    return 0; /* fail */
+}
+
+/**
+ * Remove all static entries from the ARP cache.
+ * @return  number of static entries removed
+ */
+unsigned arp_cache_static_purge( struct sr_instance* sr ) {
+	int cnt = 0;
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
+	pthread_mutex_lock(&list_lock);
+
+	if (subsystem->arpList != NULL){	
+		arpNode *cur = subsystem->arpList;
+		while(cur){
+			arpNode* tmp = cur->next;
+			if(cur->is_static == 1){
+				if(cur->prev){
+					cur->prev->next = cur->next;
+				}
+				else{
+					subsystem->arpList = cur->next;
+				}
+				if(cur->next){
+					cur->next->prev = cur->prev;
+				}			
+				free(cur);			
+				cnt++;
+			}	
+			cur = tmp;
+		}
+	}
+	pthread_mutex_unlock(&list_lock);
+	
+	arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
+
+    return cnt;
+}
+
+/**
+ * Remove all dynamic entries from the ARP cache.
+ * @return  number of dynamic entries removed
+ */
+unsigned arp_cache_dynamic_purge( struct sr_instance* sr ) {
+	int cnt = 0;
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
+	pthread_mutex_lock(&list_lock);
+
+	if (subsystem->arpList != NULL){	
+		arpNode *cur = subsystem->arpList;
+		while(cur){
+			arpNode* tmp = cur->next;
+			if(cur->is_static == 0){
+				if(cur->prev){
+					cur->prev->next = cur->next;
+				}
+				else{
+					subsystem->arpList = cur->next;
+				}
+				if(cur->next){
+					cur->next->prev = cur->prev;
+				}			
+				free(cur);			
+				cnt++;
+			}	
+			cur = tmp;
+		}
+	}
+	pthread_mutex_unlock(&list_lock);
+	
+	arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
+
+    return cnt;
 }

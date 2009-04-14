@@ -1,3 +1,6 @@
+#ifndef ARP_CACHE_H
+#define ARP_CACHE_H
+
 #include "sr_vns.h"
 #include "sr_base_internal.h"
 #include "sr_integration.h"
@@ -39,3 +42,38 @@ void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree);
 pthread_mutex_t list_lock;
 pthread_rwlock_t tree_lock;
 
+/**
+ * ---------------------------------------------------------------------------
+ * -------------------- CLI Functions ----------------------------------------
+ * ---------------------------------------------------------------------------
+ */
+ 
+ /**
+ * Add a static entry to the static ARP cache.
+ * @return 1 if succeeded (fails if the max # of static entries are already
+ *         in the cache).
+ */
+int arp_cache_static_entry_add( struct sr_instance* sr,
+                                uint32_t ip,
+                                uint8_t* mac );
+/**
+ * Remove a static entry to the static ARP cache.
+ * @return 1 if succeeded (false if ip wasn't in the cache as a static entry)
+ */
+int arp_cache_static_entry_remove( struct sr_instance* sr, uint32_t ip );
+
+/**
+ * Remove all static entries from the ARP cache.
+ * @return  number of static entries removed
+ */
+unsigned arp_cache_static_purge( struct sr_instance* sr );
+
+/**
+ * Remove all dynamic entries from the ARP cache.
+ * @return  number of dynamic entries removed
+ */
+unsigned arp_cache_dynamic_purge( struct sr_instance* sr );
+
+
+
+#endif // ARP_CACHE_H

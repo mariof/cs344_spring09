@@ -1,3 +1,6 @@
+#ifndef ARP_QUEUE_H
+#define ARP_QUEUE_H
+
 #include "sr_vns.h"
 #include "sr_base_internal.h"
 #include "sr_integration.h"
@@ -30,3 +33,5 @@ void queueSend(uint32_t ip, const char* interface);
 void* arpQueueRefresh(void* dummy);
 
 pthread_mutex_t queue_lock;
+
+#endif // ARP_QUEUE_H

@@ -1,3 +1,6 @@
+#ifndef THREAD_POOL_H
+#define THREAD_POOL_H
+
 #include <pthread.h>
 #include "sr_base_internal.h"
 
@@ -22,3 +25,5 @@ void* startThread(void* dummy);
 void addStopNode(struct threadWorker** head, struct threadWorker** tail);
 void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len, const char* interface);
 struct threadWorker* takeThreadQueue(struct threadWorker** head, struct threadWorker** tail);
+
+#endif // THREAD_POOL_H

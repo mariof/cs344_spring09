@@ -6,44 +6,6 @@
 #ifndef CLI_STUBS_H
 #define CLI_STUBS_H
 
-/**
- * Add a static entry to the static ARP cache.
- * @return 1 if succeeded (fails if the max # of static entries are already
- *         in the cache).
- */
-int arp_cache_static_entry_add( struct sr_instance* sr,
-                                uint32_t ip,
-                                uint8_t* mac ) {
-    fprintf( stderr, "not yet implemented: add static ip <-> mac translation to ROUTER's ARP cache\n" );
-    return 0; /* fail */
-}
-
-/**
- * Remove a static entry to the static ARP cache.
- * @return 1 if succeeded (false if ip wasn't in the cache as a static entry)
- */
-int arp_cache_static_entry_remove( struct sr_instance* sr, uint32_t ip ) {
-    fprintf( stderr, "not yet implemented: remove static ip <-> mac translation to ROUTER's ARP cache\n" );
-    return 0; /* fail */
-}
-
-/**
- * Remove all static entries from the ARP cache.
- * @return  number of static entries removed
- */
-unsigned arp_cache_static_purge( struct sr_instance* sr ) {
-    fprintf( stderr, "not yet implemented: arp_cache_static_purge\n" );
-    return 0;
-}
-
-/**
- * Remove all dynamic entries from the ARP cache.
- * @return  number of dynamic entries removed
- */
-unsigned arp_cache_dynamic_purge( struct sr_instance* sr ) {
-    fprintf( stderr, "not yet implemented: arp_cache_dynamic_purge\n" );
-    return 0;
-}
 
 /**
  * Enables or disables an interface on the router.
