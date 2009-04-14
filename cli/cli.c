@@ -11,6 +11,7 @@
 #include "helper.h"
 #include "socket_helper.h"       /* writenstr()                       */
 #include "../sr_base_internal.h" /* struct sr_instance                */
+#include "../routingTable.h" /* routing table functions */
 
 /* temporary */
 #include "cli_stubs.h"

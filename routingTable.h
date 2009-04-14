@@ -1,3 +1,6 @@
+#ifndef ROUTING_TABLE_H
+#define ROUTING_TABLE_H
+
 #include "sr_vns.h"
 #include "sr_base_internal.h"
 #include "sr_integration.h"
@@ -24,11 +27,27 @@ struct routingTableNode {
 };
 
 typedef struct routingTableNode rtableNode;
+pthread_mutex_t rtable_lock;
 
 void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if, int is_static);
-void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static);
+int del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static);
 void del_route_type(rtableNode **head, int is_static);
 char *lp_match(rtableNode **head, uint32_t ip);
 uint32_t gw_match(rtableNode **head, uint32_t ip);
 
-pthread_mutex_t rtable_lock;
+/**
+ * ---------------------------------------------------------------------------
+ * -------------------- CLI Functions ----------------------------------------
+ * ---------------------------------------------------------------------------
+ */
+void rtable_route_add( struct sr_instance* sr,
+                       uint32_t dest, uint32_t gw, uint32_t mask,
+                       void* intf,
+                       int is_static_route );
+int rtable_route_remove( struct sr_instance* sr,
+                         uint32_t dest, uint32_t mask,
+                         int is_static );
+void rtable_purge_all( struct sr_instance* sr );
+void rtable_purge( struct sr_instance* sr, int is_static );
+
+#endif // ROUTING_TABLE_H

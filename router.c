@@ -23,7 +23,7 @@ void processPacket(struct sr_instance* sr,
         const char* interface/* borrowed */)
 {
     int i;
-   	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
         
     if (len < ETHERNET_HEADER_LENGTH){
     	errorMsg("Ethernet Packet too short");

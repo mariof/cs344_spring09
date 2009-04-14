@@ -64,7 +64,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
     return;
 }
 
-void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static)
+int del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static)
 {
     //acquire lock
     pthread_mutex_lock(&rtable_lock);
@@ -81,10 +81,13 @@ void del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static)
 		(node->next)->prev = node->prev;
 	    }
 	    free(node);
+	    pthread_mutex_unlock(&rtable_lock);
+	    return 1;
 	}
     }
     //release lock
     pthread_mutex_unlock(&rtable_lock);
+    return 0;
 }
 
 void del_route_type(rtableNode **head, int is_static)
@@ -165,3 +168,47 @@ uint32_t gw_match(rtableNode **head, uint32_t ip)
     //return gateway
     return gw;
 }
+
+
+/**
+ * ---------------------------------------------------------------------------
+ * -------------------- CLI Functions ----------------------------------------
+ * ---------------------------------------------------------------------------
+ */
+
+/** Adds a route to the appropriate routing table. */
+void rtable_route_add( struct sr_instance* sr,
+                       uint32_t dest, uint32_t gw, uint32_t mask,
+                       void* intf,
+                       int is_static_route ) 
+{
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    struct sr_vns_if *interface = (struct sr_vns_if*) intf;
+    insert_rtable_node(&(subsystem->rtable), dest, mask, gw, interface->name, is_static_route);
+
+}
+
+/** Removes the specified route from the routing table, if present. */
+int rtable_route_remove( struct sr_instance* sr,
+                         uint32_t dest, uint32_t mask,
+                         int is_static ) 
+{
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    return del_ip(&(subsystem->rtable), dest, mask, is_static);
+}
+
+/** Remove all routes from the router. */
+void rtable_purge_all( struct sr_instance* sr ) 
+{
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    del_route_type(&(subsystem->rtable), 0);
+    del_route_type(&(subsystem->rtable), 1);
+}
+
+/** Remove all routes of a specific type from the router. */
+void rtable_purge( struct sr_instance* sr, int is_static ) 
+{
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    del_route_type(&(subsystem->rtable), is_static);
+}
+

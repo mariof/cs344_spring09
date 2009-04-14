@@ -1,8 +1,6 @@
 /**
- * Filename: cli_stus.h
+ * Filename: cli_stubs.c
  * Author: David Underhill
- * Purpose: TEMPORARY file where router hooks are defined temporarily until they
- *          are implemented for real.
  */
 
 #ifndef CLI_STUBS_H
@@ -103,32 +101,6 @@ int router_is_ospf_enabled( struct sr_instance* sr ) {
  */
 void router_set_ospf_enabled( struct sr_instance* sr, int enabled ) {
     fprintf( stderr, "not yet implemented: router_set_ospf_enabled\n" );
-}
-
-/** Adds a route to the appropriate routing table. */
-void rtable_route_add( struct sr_instance* sr,
-                       uint32_t dest, uint32_t gw, uint32_t mask,
-                       void* intf,
-                       int is_static_route ) {
-    fprintf( stderr, "not yet implemented: rtable_route_add\n" );
-}
-
-/** Removes the specified route from the routing table, if present. */
-int rtable_route_remove( struct sr_instance* sr,
-                         uint32_t dest, uint32_t mask,
-                         int is_static ) {
-    fprintf( stderr, "not yet implemented: rtable_route_remove\n" );
-    return 0 /* fail */;
-}
-
-/** Remove all routes from the router. */
-void rtable_purge_all( struct sr_instance* sr ) {
-    fprintf( stderr, "not yet implemented: rtable_purge_all\n" );
-}
-
-/** Remove all routes of a specific type from the router. */
-void rtable_purge( struct sr_instance* sr, int is_static ) {
-    fprintf( stderr, "not yet implemented: rtable_purge\n" );
 }
 
 #endif /* CLI_STUBS_H */
