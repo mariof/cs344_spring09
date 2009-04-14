@@ -462,7 +462,7 @@ void fill_rtable(rtableNode **head)
 		    &nm[0], &nm[1], &nm[2], &nm[3],
 		    output_if) != 13)
 	    break;
-	printf("Added to the routing table : %d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s", 
+	printf("Added to the routing table : %d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s\n", 
 		    ip[0], ip[1], ip[2], ip[3],
 		    gw[0], gw[1], gw[2], gw[3],
 		    nm[0], nm[1], nm[2], nm[3],
