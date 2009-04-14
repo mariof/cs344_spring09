@@ -128,10 +128,9 @@ void processPacket(struct sr_instance* sr,
 	}
 	else{
 	    dbgMsg("Forwarding received packet");
+	    sendIPpacket(sr, interface, nextHopIP, (uint8_t*)packet, len);
 	}		
 
-	// just testing
-	sendIPpacket(sr, interface, nextHopIP, (uint8_t*)packet, len);
     
     }
     else if (packet[12] == 8 && packet[13] == 6){ // ARP
