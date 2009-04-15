@@ -86,7 +86,7 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 	// Load thread pool system
 	initThreadPool();
 
-    testList(sr);
+    //testList(sr);
     
 } /* -- sr_integ_hw_setup -- */
 
@@ -148,6 +148,7 @@ void sr_integ_add_interface(struct sr_instance* sr,
     tmp_if->ip = vns_if->ip;
     tmp_if->mask = vns_if->mask;
     tmp_if->speed = vns_if->speed;
+    tmp_if->enabled = 1;
         
     //printf("ip: %u\n", vns_if->ip);
         

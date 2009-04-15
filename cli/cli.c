@@ -230,40 +230,59 @@ void cli_show_ip() {
 }
 
 void cli_show_ip_arp() {
-    printARPCache();
+    char buf[128];
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    pthread_mutex_lock(&list_lock);
+    struct arpCacheNode *node = subsystem->arpList;
+    uint8_t ip_str[4];
+    while(node != NULL) {
+		int2byteIP(node->ip, ip_str);
+		sprintf(buf, "ip: %u.%u.%u.%u mac:%2x:%2x:%2x:%2x:%2x:%2x static:%d\n", 
+			ip_str[0], ip_str[1], ip_str[2], ip_str[3],
+			node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5],
+			node->is_static);
+		node = node->next;
+	    cli_send_str( buf );
+	}
+    pthread_mutex_unlock(&list_lock);
 }
 
 void cli_show_ip_intf() {
+    char buf[128];
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
     for(i = 0; i < subsystem->num_ifaces; i++) {
-	struct sr_vns_if *node = &(subsystem->ifaces[i]);
-	uint8_t ip_str[4];
-	int2byteIP(node->ip, ip_str);
-	printf("%s IP:%u.%u.%u.%u MAC:%x:%x:%x:%x:%x:%x enabled:%d\n",
-		node->name, 
-		ip_str[0], ip_str[1], ip_str[2], ip_str[3],
-		node->addr[0], node->addr[1], node->addr[2], node->addr[3], node->addr[4], node->addr[5],
-		node->enabled);
+		struct sr_vns_if *node = &(subsystem->ifaces[i]);
+		uint8_t ip_str[4];
+		int2byteIP(node->ip, ip_str);
+		sprintf(buf, "%s IP:%u.%u.%u.%u MAC:%x:%x:%x:%x:%x:%x enabled:%d\n",
+			node->name, 
+			ip_str[0], ip_str[1], ip_str[2], ip_str[3],
+			node->addr[0], node->addr[1], node->addr[2], node->addr[3], node->addr[4], node->addr[5],
+			node->enabled);
+	    cli_send_str( buf );
     }
 }
 
 void cli_show_ip_route() {
+    char buf[128];
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     rtableNode *node = subsystem->rtable;
     uint8_t ip[4], gw[4], nm[4];
     while(node != NULL) {
-	int2byteIP(node->ip, ip);
-	int2byteIP(node->gateway, gw);
-	int2byteIP(node->netmask, nm);
-	printf("IP:%d.%d.%d.%d  Gateway:%d.%d.%d.%d  Netmask:%d.%d.%d.%d  IF:%s Static:%d\n", 
-		    ip[0], ip[1], ip[2], ip[3],
-		    gw[0], gw[1], gw[2], gw[3],
-		    nm[0], nm[1], nm[2], nm[3],
-		    node->output_if, node->is_static);
-	node = node->next;
+		int2byteIP(node->ip, ip);
+		int2byteIP(node->gateway, gw);
+		int2byteIP(node->netmask, nm);
+		sprintf(buf, "IP:%d.%d.%d.%d  Gateway:%d.%d.%d.%d  Netmask:%d.%d.%d.%d  IF:%s Static:%d\n", 
+			    ip[0], ip[1], ip[2], ip[3],
+			    gw[0], gw[1], gw[2], gw[3],
+			    nm[0], nm[1], nm[2], nm[3],
+			    node->output_if, node->is_static);
+		node = node->next;
+	    cli_send_str( buf );
     }
 }
 

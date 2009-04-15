@@ -491,13 +491,13 @@ void printARPCache() {
     struct arpCacheNode *node = subsystem->arpList;
     uint8_t ip_str[4];
     while(node != NULL) {
-	node = node->next;
-	int2byteIP(node->ip, ip_str);
-	printf("ip: %u.%u.%u.%u mac:%x:%x:%x:%x:%x:%x static:%d\n", 
-		ip_str[0], ip_str[1], ip_str[2], ip_str[3],
-		node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5],
-		node->is_static);
-    }
+		int2byteIP(node->ip, ip_str);
+		printf("ip: %u.%u.%u.%u mac:%2x:%2x:%2x:%2x:%2x:%2x static:%d\n", 
+			ip_str[0], ip_str[1], ip_str[2], ip_str[3],
+			node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5],
+			node->is_static);
+		node = node->next;
+	    }
     pthread_mutex_unlock(&list_lock);
 }
 
