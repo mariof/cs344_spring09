@@ -85,6 +85,7 @@ int del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static)
 	    pthread_mutex_unlock(&rtable_lock);
 	    return 1;
 	}
+	node = node->next;
     }
     //release lock
     pthread_mutex_unlock(&rtable_lock);
@@ -109,6 +110,7 @@ void del_route_type(rtableNode **head, int is_static)
 	    }
 	    free(node);
 	}
+	node = node->next;
     }
     //release lock
     pthread_mutex_unlock(&rtable_lock);
