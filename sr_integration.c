@@ -22,9 +22,12 @@
 
 #include "router.h"
 
+#include "lwtcp/lwip/sys.h"
+
 #ifdef _CPUMODE_
 #include "sr_cpu_extension_nf2.h"
 #endif
+
 
 /*-----------------------------------------------------------------------------
  * Method: sr_integ_init(..)
@@ -71,13 +74,14 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 {
     printf(" ** sr_integ_hw(..) called \n");
     
-    pthread_t arpCacheRefreshThread, arpQueueRefreshThread;
+	sys_thread_new(arpCacheRefresh, NULL);
+	sys_thread_new(arpQueueRefresh, NULL);
+	    
+//    if( pthread_create(&arpCacheRefreshThread, NULL, arpCacheRefresh, NULL) == 0 )
+//    	pthread_detach(arpCacheRefreshThread);
     
-    if( pthread_create(&arpCacheRefreshThread, NULL, arpCacheRefresh, NULL) == 0 )
-    	pthread_detach(arpCacheRefreshThread);
-    
-    if( pthread_create(&arpQueueRefreshThread, NULL, arpQueueRefresh, NULL) == 0 )
-    	pthread_detach(arpQueueRefreshThread);
+//    if( pthread_create(&arpQueueRefreshThread, NULL, arpQueueRefresh, NULL) == 0 )
+//    	pthread_detach(arpQueueRefreshThread);
 
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     // Load routing table
@@ -116,7 +120,7 @@ void sr_integ_input(struct sr_instance* sr,
     /* -- INTEGRATION PACKET ENTRY POINT!-- */
 	
     printf(" ** sr_integ_input(..) called \n");
-
+    
 //	processPacket(sr, packet, len, interface);		
 	addThreadQueue(sr, packet, len, interface);
 
@@ -228,12 +232,12 @@ void sr_integ_destroy(struct sr_instance* sr)
 
 uint32_t sr_integ_findsrcip(uint32_t dest /* nbo */)
 {
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    fprintf(stderr, "!!! Tranport layer called ip_findsrcip(..) this must be !!!\n");
-    fprintf(stderr, "!!! defined to return the correct source address        !!!\n");
-    fprintf(stderr, "!!! given a destination                                 !!!\n ");
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+//    fprintf(stderr, "!!! Tranport layer called ip_findsrcip(..) this must be !!!\n");
+//    fprintf(stderr, "!!! defined to return the correct source address        !!!\n");
+//    fprintf(stderr, "!!! given a destination                                 !!!\n ");
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+	printf("call to sr_integ_findsrcip\n");
     /* --
      * e.g.
      *
@@ -250,14 +254,14 @@ uint32_t sr_integ_findsrcip(uint32_t dest /* nbo */)
 
     // Get IP address of the if from the sr_router struct
     if(src_if == NULL)
-	return 0;
+		return 0;
 
     int i;
     for(i = 0; i < subsystem->num_ifaces; i++){
-	if (!strcmp(src_if, subsystem->ifaces[i].name)) {
-	    // Convert IP address to network order and return
-	    return htonl(subsystem->ifaces[i].ip);
-	}
+		if (!strcmp(src_if, subsystem->ifaces[i].name)) {
+		    // Convert IP address to network order and return
+		    return htonl(subsystem->ifaces[i].ip);
+		}
     }
 
     return 0;
@@ -274,17 +278,65 @@ uint32_t sr_integ_findsrcip(uint32_t dest /* nbo */)
 
 uint32_t sr_integ_ip_output(uint8_t* payload /* given */,
                             uint8_t  proto,
-                            uint32_t src, /* nbo */
-                            uint32_t dest, /* nbo */
+                            uint32_t src, /* nbo */ // liar, it's hbo (mariof)
+                            uint32_t dest, /* nbo */ // liar, it's hbo (mariof)
                             int len)
 {
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    fprintf(stderr, "!!! Tranport layer called sr_integ_ip_output(..)        !!!\n");
-    fprintf(stderr, "!!! this must be defined to handle the network          !!!\n ");
-    fprintf(stderr, "!!! level functionality of transport packets            !!!\n ");
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+//    fprintf(stderr, "!!! Tranport layer called sr_integ_ip_output(..)        !!!\n");
+//    fprintf(stderr, "!!! this must be defined to handle the network          !!!\n ");
+//    fprintf(stderr, "!!! level functionality of transport packets            !!!\n ");
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
-    assert(0);
+//    assert(0);
+//	printf("call to sr_integ_ip_output\n");
+
+	int i, myLen;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	char* interface = NULL;
+	
+	myLen = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + len;
+	if(myLen < 60) myLen = 60;
+	
+	uint8_t *packet = (uint8_t*)malloc(myLen*sizeof(uint8_t));
+	memset(packet, 0, myLen);
+	memcpy(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH], payload, len);
+	free(payload);
+	
+//	uint8_t ss[4], dd[4];
+//	int2byteIP(src, ss);
+//	int2byteIP(dest, dd);	
+//	printf("len: %d src: %u.%u.%u.%u   dest: %u.%u.%u.%u\n", len, ss[0], ss[1], ss[2], ss[3], dd[0], dd[1], dd[2], dd[3]);
+		
+	interface = lp_match(&(subsystem->rtable), dest); //output interface
+	
+	if(interface == NULL){
+		errorMsg("Unknown interface");
+		return 1;
+	}
+		
+	// IP header
+	i = ETHERNET_HEADER_LENGTH;
+	packet[i++] = 69; // version and header length 
+	packet[i++] = 0; // TOS
+	packet[i++] = 0; packet[i++] = IP_HEADER_LENGTH + len;// total length
+	packet[i++] = (uint8_t)(rand() % 256); packet[i++] = (uint8_t)(rand() % 256); // identification
+	packet[i++] = 0; packet[i++] = 0; // fragmentation
+	packet[i++] = 64; // TTL
+	packet[i++] = proto; // protocol
+	packet[i++] = 0; packet[i++] = 0; // checksum (calculated later)
+	int2byteIP(src, &packet[i]); i += 4; // source IP
+	int2byteIP(dest, &packet[i]); i += 4; // destination IP
+	
+	// IP checksum
+	int ipChksum = checksum((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+	packet[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
+	packet[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum	
+	
+	sendIPpacket(sr, interface, getNextHopIP(dest), packet, myLen);
+	free(packet);
+	free(interface);
 
     /* --
      * e.g.

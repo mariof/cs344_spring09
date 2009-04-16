@@ -30,7 +30,7 @@ struct arpQueueNode{
 void queuePacket(uint8_t* packet, unsigned len, const char* interface, uint32_t dstIP);
 void queueSend(uint32_t ip, const char* interface);
 
-void* arpQueueRefresh(void* dummy);
+void arpQueueRefresh(void* dummy);
 
 pthread_mutex_t queue_lock;
 

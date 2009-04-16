@@ -156,7 +156,6 @@ int arpTimeout(arpNode **head){
 		pthread_mutex_unlock(&list_lock);
 		return 0;
 	}
-	
 	arpNode *cur = *head;
 	while(cur){
 		if( (!cur->is_static) && ( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT ) ){
@@ -172,12 +171,14 @@ int arpTimeout(arpNode **head){
 			}			
 			arpNode *tmp = cur->prev;
 			free(cur);
+			
 			if(tmp)
 				cur = tmp;
 			else
 				cur = *head;
+							
 		}	
-		cur = cur->next;
+		if(cur) cur = cur->next;
 	}
 
 	pthread_mutex_unlock(&list_lock);

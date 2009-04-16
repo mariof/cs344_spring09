@@ -8,7 +8,7 @@
 #include <time.h>
 #include <stdlib.h>
 
-#define ARP_CACHE_TIMEOUT 300
+#define ARP_CACHE_TIMEOUT 4
 
 struct arpCacheNode{
 	uint32_t ip;

@@ -1,6 +1,6 @@
 #include "router.h"
 #include <string.h>
-#include <sched.h>
+#include "lwtcp/lwip/sys.h"
 
 // initializes thread pool
 void initThreadPool(){
@@ -13,9 +13,11 @@ void initThreadPool(){
     pthread_mutex_init(&pool_lock, NULL);
     
 	while(i < NUM_THREADS){    	
-    	if (pthread_create(&workers[i], NULL, startThread, NULL) == 0){
-    		i++;
-    	}
+    	sys_thread_new(startThread, NULL);
+    	i++;
+    	//if (pthread_create(&workers[i], NULL, startThread, NULL) == 0){
+    	//	i++;
+    	//}
     }    
     dbgMsg("Thread Pool Initialized");
 }
@@ -30,9 +32,9 @@ void destroyThreadPool(){
 	for(i = 0; i < NUM_THREADS; i++){
 		addStopNode(&subsystem->poolHead, &subsystem->poolTail);
 	}
-	for(i = 0; i < NUM_THREADS; i++){
-		pthread_join(workers[i], NULL);
-	}
+//	for(i = 0; i < NUM_THREADS; i++){
+//		pthread_join(workers[i], NULL);
+//	}
 
 	pthread_mutex_lock(&pool_lock);
 	struct threadWorker* cur = subsystem->poolHead;
@@ -50,7 +52,7 @@ void destroyThreadPool(){
 }
 
 // main thread function
-void* startThread(void* dummy){
+void startThread(void* dummy){
 	struct threadWorker *w;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
@@ -62,7 +64,7 @@ void* startThread(void* dummy){
 			if(w->stop_work){
 				if(w->packet) free(w->packet);
 				free(w);
-				return NULL;			
+				return;			
 			}
 			else{
 				processPacket(sr, w->packet, w->len, w->interface);				
@@ -70,11 +72,11 @@ void* startThread(void* dummy){
 				free(w);
 			}
 		}
-		else{				
-			sched_yield();
+		else{
+			usleep(10);				
 		}
 	}
-	return NULL;
+	return;
 }
 
 // adds a job to the queue (a packet to process)
@@ -101,8 +103,8 @@ void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len,
 	else{
 		(*head)->prev = node;
 		node->next = *head;
+		*head = node;
 	}	
-
 	pthread_mutex_unlock(&pool_lock);
 	dbgMsg("Job put in queue");
 }
@@ -126,6 +128,7 @@ void addStopNode(struct threadWorker** head, struct threadWorker** tail){
 	else{
 		(*head)->prev = node;
 		node->next = *head;
+		*head = node;
 	}	
 		
 	pthread_mutex_unlock(&pool_lock);

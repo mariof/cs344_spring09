@@ -34,13 +34,18 @@
 #   define make_thread(func,arg) sys_thread_new(func,arg);
 #endif
 
+/* forward decl */
+void real_close(int fd);
+
 static pthread_mutex_t parser_lock;
 
 /** Cleans up client_to_free and returns the next client */
 void cli_client_cleanup( cli_client_t* client_to_free ) {
     /* initial cleanup */
-    true_or_die( client_to_free->fd > 0, "bad fd %d in cli_client_cleanup", client_to_free->fd );
-    close( client_to_free->fd );
+    if(client_to_free->fd < 0)
+        real_close(-client_to_free->fd);
+    else
+        close(client_to_free->fd);
     search_state_destroy( &client_to_free->state );
 }
 

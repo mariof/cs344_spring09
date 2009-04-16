@@ -46,10 +46,10 @@ void processPacket(struct sr_instance* sr,
     // see if input packet is IPv4 or ARP
     if (packet[12] == 8 && packet[13] == 0){ // IPv4
         dbgMsg("IPv4 packet received");
-	if (len < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH){
-	    errorMsg("IP Packet too short");
-	    return;
-	}
+		if (len < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH){
+		    errorMsg("IP Packet too short");
+		    return;
+		}
     	uint8_t* ipPacket = &packet[ETHERNET_HEADER_LENGTH];
 
 	// check checksum
@@ -79,17 +79,10 @@ void processPacket(struct sr_instance* sr,
 	    return;
 	}
 	
-	// decrement and check TTL
+	// decrement TTL
 	uint8_t ttl = ipPacket[8];
-	if(ttl <= 1) {
-	    /* drop packet
-	     * send icmp packet back to the source
-	     */
-	    errorMsg("TTL went to 0. Dropping packet");
-	    sendICMPTimeExceeded(interface, packet, len);
-	    return;
-	}
-	ipPacket[8] = ttl-1;
+	ttl--;
+	ipPacket[8] = ttl;
 
 	// update checksum
 	uint32_t csum = ipPacket[10] & 0xFF;
@@ -99,7 +92,7 @@ void processPacket(struct sr_instance* sr,
 	ipPacket[11] = csum & 0xFF;
 	ipPacket[10] = (csum >> 8) & 0xFF;
 
-    	uint32_t nextHopIP, dstIP;
+    uint32_t nextHopIP, dstIP;
 	char *out_if = NULL;
     		
 	/*uint32_t testIP;
@@ -139,17 +132,27 @@ void processPacket(struct sr_instance* sr,
 	if(myIP == dstIP){
 	    dbgMsg("Received packet destined for the router");
 	    if(ipPacket[9] == 1){ // ICMP
-		processICMP(interface, packet, len);
+			processICMP(interface, packet, len);
 	    }
 	    else if(ipPacket[9] == 6){ // TCP
-		sr_transport_input(packet);
+			sr_transport_input(ipPacket);
 	    } 
 	    else{ // protocol not supported
-		dbgMsg("Transport Protocol not supported");
-		sendICMPDestinationUnreachable(interface, packet, len, 2);
+			dbgMsg("Transport Protocol not supported");
+			sendICMPDestinationUnreachable(interface, packet, len, 2);
 	    }
 	}
 	else{
+		// check TTL
+		if(ttl < 1) {
+		    /* drop packet
+		     * send icmp packet back to the source
+		     */
+		    errorMsg("TTL went to 0. Dropping packet");
+		    sendICMPTimeExceeded(interface, packet, len);
+		    return;
+		}
+		
 	    dbgMsg("Forwarding received packet");
 	    sendIPpacket(sr, out_if, nextHopIP, (uint8_t*)packet, len);
 	}		
@@ -206,7 +209,6 @@ void processPacket(struct sr_instance* sr,
     	
     		arpInsert(&subsystem->arpList, srcIP, srcMAC, 0);
 			arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
-			//inorderPrintTree(subsystem->arpTree);
 			
 			// send queues
 			queueSend(srcIP, interface);
@@ -336,7 +338,7 @@ void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
 }
 
 // runs every ~20 seconds in a separate thread to see if any arp cache entries have timed out
-void* arpCacheRefresh(void *dummy){
+void arpCacheRefresh(void *dummy){
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	while(1){
@@ -386,6 +388,8 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	// get destination MAC
 	uint8_t *dstMAC = arpLookupTree(subsystem->arpTree, ip);
 	
+	//for(i = 0; i < len; i++) printf("%d: %d\n", i, packet[i]);
+
 	if(dstMAC){
 		dbgMsg("Sending packet");
 		for (i = 0; i < 6; i++) packet[i] = dstMAC[i];

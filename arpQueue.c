@@ -102,7 +102,7 @@ void queueSend(uint32_t ip, const char* interface){
 }
 
 // refresh all arp queues (timeout if neccessary)
-void* arpQueueRefresh(void* dummy){
+void arpQueueRefresh(void* dummy){
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 

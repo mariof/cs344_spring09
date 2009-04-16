@@ -13,8 +13,8 @@
 #define IP_HEADER_LENGTH 20
 #define ICMP_HEADER_LENGTH 4
 
-#define ARP_CACHE_REFRESH 20 // 20
-#define ARP_QUEUE_REFRESH 5  // 5
+#define ARP_CACHE_REFRESH 2
+#define ARP_QUEUE_REFRESH 2
 
 struct sr_router{
 	struct arpQueueNode* arpQueue;
@@ -45,7 +45,7 @@ uint32_t getInterfaceIP(const char* interface);
 uint32_t getNextHopIP(uint32_t ip);
 void printARPCache();
 
-void* arpCacheRefresh(void *dummy);
+void arpCacheRefresh(void *dummy);
 
 void testList(struct sr_instance* sr);
 

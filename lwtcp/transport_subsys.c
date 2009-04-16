@@ -107,7 +107,6 @@ err_t
 tcp_msg_input(struct pbuf *p, struct netif *inp)
 {
   struct transport_msg *msg;
-  
   msg = memp_mallocp(MEMP_TCP_MSG);
   if(msg == NULL) {
     pbuf_free(p);    
@@ -118,6 +117,7 @@ tcp_msg_input(struct pbuf *p, struct netif *inp)
   msg->msg.inp.p = p;
   msg->msg.inp.netif = inp;
   sys_mbox_post(mbox, msg);
+
   return ERR_OK;
 }
 

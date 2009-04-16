@@ -205,7 +205,7 @@ sys_mbox_post(struct sys_mbox *mbox, void *msg)
   uint8_t first;
   
   sys_sem_wait(mbox->mutex);
-  
+
   DEBUGF(SYS_DEBUG, ("sys_mbox_post: mbox %p msg %p\n", mbox, msg));
 
   mbox->msgs[mbox->last] = msg;
@@ -226,7 +226,6 @@ sys_mbox_post(struct sys_mbox *mbox, void *msg)
   }
   
   sys_sem_signal(mbox->mutex);
-
 }
 /*-----------------------------------------------------------------------------------*/
 uint16_t

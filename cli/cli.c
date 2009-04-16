@@ -238,7 +238,7 @@ void cli_show_ip_arp() {
     uint8_t ip_str[4];
     while(node != NULL) {
 		int2byteIP(node->ip, ip_str);
-		sprintf(buf, "ip: %u.%u.%u.%u mac:%2x:%2x:%2x:%2x:%2x:%2x static:%d\n", 
+		sprintf(buf, "IP: %u.%u.%u.%u MAC: %.2x:%.2x:%.2x:%.2x:%.2x:%.2x static:%d\n", 
 			ip_str[0], ip_str[1], ip_str[2], ip_str[3],
 			node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5],
 			node->is_static);
@@ -257,7 +257,7 @@ void cli_show_ip_intf() {
 		struct sr_vns_if *node = &(subsystem->ifaces[i]);
 		uint8_t ip_str[4];
 		int2byteIP(node->ip, ip_str);
-		sprintf(buf, "%s IP:%u.%u.%u.%u MAC:%x:%x:%x:%x:%x:%x enabled:%d\n",
+		sprintf(buf, "%s IP: %u.%u.%u.%u MAC: %.2x:%.2x:%.2x:%.2x:%.2x:%.2x enabled:%d\n",
 			node->name, 
 			ip_str[0], ip_str[1], ip_str[2], ip_str[3],
 			node->addr[0], node->addr[1], node->addr[2], node->addr[3], node->addr[4], node->addr[5],
