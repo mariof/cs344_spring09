@@ -18,6 +18,7 @@ struct threadWorker{
 };
 
 pthread_mutex_t pool_lock;
+pthread_cond_t pool_cond;
 
 void initThreadPool();
 void destroyThreadPool();

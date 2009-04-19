@@ -11,6 +11,7 @@ void initThreadPool(){
 	subsystem->poolHead = subsystem->poolTail = NULL;
 
     pthread_mutex_init(&pool_lock, NULL);
+	pthread_cond_init (&pool_cond, NULL);
     
 	while(i < NUM_THREADS){    	
     	sys_thread_new(startThread, NULL);
@@ -45,6 +46,7 @@ void destroyThreadPool(){
 		cur = cur->next;
 		free(tmp);
 	}
+	pthread_cond_destroy(&pool_cond);
 	pthread_mutex_unlock(&pool_lock);
 
     pthread_mutex_destroy(&pool_lock);
@@ -71,9 +73,6 @@ void startThread(void* dummy){
 				if(w->packet) free(w->packet);
 				free(w);
 			}
-		}
-		else{
-			usleep(10);				
 		}
 	}
 	return;
@@ -104,7 +103,8 @@ void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len,
 		(*head)->prev = node;
 		node->next = *head;
 		*head = node;
-	}	
+	}
+	pthread_cond_signal(&pool_cond);	
 	pthread_mutex_unlock(&pool_lock);
 	dbgMsg("Job put in queue");
 }
@@ -131,6 +131,7 @@ void addStopNode(struct threadWorker** head, struct threadWorker** tail){
 		*head = node;
 	}	
 		
+	pthread_cond_signal(&pool_cond);	
 	pthread_mutex_unlock(&pool_lock);
 }
 
@@ -139,6 +140,7 @@ struct threadWorker* takeThreadQueue(struct threadWorker** head, struct threadWo
 	struct threadWorker *retVal;
 
 	pthread_mutex_lock(&pool_lock);
+	pthread_cond_wait(&pool_cond, &pool_lock);
 	if(*tail == NULL){
 		retVal = NULL;
 	}
