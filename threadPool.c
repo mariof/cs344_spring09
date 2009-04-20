@@ -62,7 +62,7 @@ void startThread(void* dummy){
 	while(1){
 		w = takeThreadQueue(&subsystem->poolHead, &subsystem->poolTail);
 		if(w){
-			dbgMsg("Job taken off queue");
+			//dbgMsg("Job taken off queue");
 			if(w->stop_work){
 				if(w->packet) free(w->packet);
 				free(w);
@@ -106,7 +106,7 @@ void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len,
 	}
 	pthread_cond_signal(&pool_cond);	
 	pthread_mutex_unlock(&pool_lock);
-	dbgMsg("Job put in queue");
+	//dbgMsg("Job put in queue");
 }
 
 // adds a stop node to the queue (this node causes all spawned threads to exit)

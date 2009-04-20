@@ -79,19 +79,6 @@ void processPacket(struct sr_instance* sr,
 	    return;
 	}
 	
-	// decrement TTL
-	uint8_t ttl = ipPacket[8];
-	ttl--;
-	ipPacket[8] = ttl;
-
-	// update checksum
-	uint32_t csum = ipPacket[10] & 0xFF;
-	csum = (csum << 8) + (ipPacket[11] & 0xFF);
-	csum += 0x100;
-	csum = ((csum >> 16) + csum) & 0xFFFF;
-	ipPacket[11] = csum & 0xFF;
-	ipPacket[10] = (csum >> 8) & 0xFF;
-
     uint32_t nextHopIP, dstIP;
 	char *out_if = NULL;
     		
@@ -143,8 +130,10 @@ void processPacket(struct sr_instance* sr,
 	    }
 	}
 	else{
+		uint8_t ttl = ipPacket[8];
+
 		// check TTL
-		if(ttl < 1) {
+		if(ttl <= 1) {
 		    /* drop packet
 		     * send icmp packet back to the source
 		     */
@@ -152,6 +141,18 @@ void processPacket(struct sr_instance* sr,
 		    sendICMPTimeExceeded(interface, packet, len);
 		    return;
 		}
+
+		// decrement TTL
+		ttl--;
+		ipPacket[8] = ttl;
+
+		// update checksum
+		uint32_t csum = ipPacket[10] & 0xFF;
+		csum = (csum << 8) + (ipPacket[11] & 0xFF);
+		csum += 0x100;
+		csum = ((csum >> 16) + csum) & 0xFFFF;
+		ipPacket[10] = (csum >> 8) & 0xFF;
+		ipPacket[11] = csum & 0xFF;
 		
 	    dbgMsg("Forwarding received packet");
 	    sendIPpacket(sr, out_if, nextHopIP, (uint8_t*)packet, len);

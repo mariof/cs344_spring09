@@ -14,6 +14,7 @@
 #include "../router.h"		/* interface enable/disable cli functions */
 #include "../routingTable.h" /* routing table functions */
 #include "../arpCache.h"	/* arp cache functions */
+#include <time.h>
 
 /* temporary */
 #include "cli_stubs.h"
@@ -548,7 +549,35 @@ int cli_ping_handle_self( uint32_t ip ) {
  * and whether it succeeds or not should be sent to the specified client_fd.
  */
 static void cli_send_ping( int client_fd, uint32_t ip ) {
-    fprintf( stderr, "not yet implmented: send an echo request\n" );
+    char buf[128];
+    char *out_if = NULL;
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	out_if = lp_match(&(subsystem->rtable), ip); //output interface
+	if(out_if == NULL) return;
+
+	uint16_t identifier = rand() % 0xffff;
+	uint16_t seqNum = 0;
+
+	struct pingRequestNode* node = (struct pingRequestNode*)malloc(sizeof(struct pingRequestNode));
+	node->fd = client_fd;
+	node->identifier = identifier;
+	node->seqNum = seqNum;
+	node->time = time(NULL);
+
+	pthread_mutex_lock(&ping_lock);
+		node->next = pingListHead;	
+		pingListHead = node;
+	pthread_mutex_unlock(&ping_lock);
+
+	sendICMPEchoRequest(out_if, ip, identifier, seqNum);
+
+	uint8_t ipStr[4];
+	int2byteIP(ip, ipStr);
+	sprintf(buf, "Ping request sent to %u.%u.%u.%u on interface:%s\n", ipStr[0], ipStr[1], ipStr[2], ipStr[3], out_if);
+	writenf(client_fd, buf);
+	free(out_if);
 }
 
 void cli_ping( gross_ip_t* data ) {

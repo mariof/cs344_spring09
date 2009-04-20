@@ -1,10 +1,47 @@
 #include "router.h"
+#include "cli/socket_helper.h"
 
 void processICMP(const char* interface, const uint8_t* packet, unsigned len){
 	if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH] == 8){ // Echo Reqeust
 		sendICMPEchoReply(interface, packet, len);
 	}
+	else if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH] == 0){ // Echo Reply
+		processEchoReply(packet, len);
+	}
 }
+
+void processEchoReply(const uint8_t* packet, unsigned len){
+	uint16_t identifier, seqNum;
+	
+	identifier = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4])));
+	seqNum = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 6])));
+	
+	printf("ident: %d\n", packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4]);
+	pthread_mutex_lock(&ping_lock);
+		struct pingRequestNode *node = pingListHead;
+		struct pingRequestNode *prev = NULL;
+		while(node){
+			if(node->identifier == identifier){
+				writenf(node->fd, "Ping Reply from: %u.%u.%u.%u icmp_seq=%u ttl=%u time=%.3fms\n",
+							packet[ETHERNET_HEADER_LENGTH + 12], packet[ETHERNET_HEADER_LENGTH + 13],
+							packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15],
+							seqNum, packet[ETHERNET_HEADER_LENGTH + 8], time(NULL) - node->time);
+				if(prev){
+					prev->next = node->next;
+				}
+				else{
+					pingListHead = node->next;
+				}
+				free(node);
+				break;
+			}
+			prev = node;
+			node = node->next;
+		}
+	pthread_mutex_unlock(&ping_lock);
+
+}
+
 
 // returns 16 bit checksum for IP and ICMP headers
 uint16_t checksum(uint16_t* data, unsigned len){
@@ -58,7 +95,7 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 	int2byteIP(dstIP, &p[i]); i+=4; // destination IP
 	
 	// IP checksum
-	int ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+	uint16_t ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
 	p[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
 	p[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
 	
@@ -71,18 +108,75 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 	for(i = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + ICMP_HEADER_LENGTH; i < len; i++) p[i] = requestPacket[i];
 
 	// ICMP checksum
-	ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), len - (ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH));
-	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(ipChksum) >> 8) & 0xff; // ICMP checksum 
-	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
+	uint16_t icmpChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), len - (ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH));
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(icmpChksum) >> 8) & 0xff; // ICMP checksum 
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(icmpChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
-	dbgMsg("ICMP: Sending Echo Reply");
 	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
 	
 //	for(i = 0; i < len; i++) printf("%d: %d\n", i, p[i]);
 		
 	free(p);
 }
+
+// sends out Ping Request with 56 byte payload
+void sendICMPEchoRequest(const char* interface, uint32_t dstIP, uint16_t identifier, uint16_t seqNum){ // dstIP, identifier, seqNum in host byte order
+	int i;
+	int len = 98; // 56 + 8 + 20 + 14
+	uint8_t *p = (uint8_t*)malloc(len*sizeof(uint8_t));
+		
+	// Ethernet header
+	for(i = 0; i < ETHERNET_HEADER_LENGTH; i++) p[i] = 0;
+	
+	// IP header
+	i = ETHERNET_HEADER_LENGTH;
+	p[i++] = 69; // version and length 
+	p[i++] = 0; // TOS
+	p[i++] = 0; // total length 
+	p[i++] = 84; // total length (56+8+20)
+	p[i++] = (uint8_t)(rand() % 256); p[i++] = (uint8_t)(rand() % 256); // identification
+	p[i++] = 0; p[i++] = 0; // fragmentation
+	p[i++] = 64; // TTL
+	p[i++] = 1; // protocol (ICMP)
+	p[i++] = 0; p[i++] = 0; // checksum (calculated later)
+	int2byteIP(getInterfaceIP(interface), &p[i]); i += 4; // source IP
+	int2byteIP(dstIP, &p[i]); i+=4; // destination IP
+	
+	// IP checksum
+	uint16_t ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+	p[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
+	p[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
+	
+	// ICMP header
+	i = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH;
+	p[i++] = 8; p[i++] = 0; // Echo Request
+	p[i++] = 0; p[i++] = 0; // ICMP checksum (calculated later)
+	p[i++] = identifier / 256; p[i++] = identifier % 256;
+	p[i++] = seqNum / 256; p[i++] = seqNum % 256;
+		
+	// ICMP data
+	uint8_t num;
+	for(i = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + ICMP_HEADER_LENGTH + 4, num = 8; i < len; i++, num++) p[i] = num;
+
+	// ICMP checksum
+	uint16_t icmpChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), len - (ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH));
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(icmpChksum) >> 8) & 0xff; // ICMP checksum 
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(icmpChksum) & 0xff); // ICMP checksum
+	
+	// send the packet out
+	uint8_t ipStr[4];
+	int2byteIP(getNextHopIP(dstIP), ipStr);
+	printf("!!!!!!!!next hop:%u.%u.%u.%u, if:%s\n", ipStr[0], ipStr[1], ipStr[2], ipStr[3], interface);
+
+	dbgMsg("ICMP: Sending Echo Request");
+	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
+	
+//	for(i = 0; i < len; i++) printf("%d: %d\n", i, p[i]);
+		
+	free(p);
+}
+
 
 // sends ICMP destination unreachable error with code:
 /*
@@ -139,7 +233,7 @@ void sendICMPDestinationUnreachable(const char* interface, const uint8_t* origin
 	int2byteIP(dstIP, &p[i]); i+=4; // destination IP
 	
 	// IP checksum
-	int ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+	uint16_t ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
 	p[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
 	p[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
 	
@@ -155,9 +249,9 @@ void sendICMPDestinationUnreachable(const char* interface, const uint8_t* origin
 	for(j = ETHERNET_HEADER_LENGTH; j < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8; i++, j++) p[i] = originalPacket[j];
 
 	// ICMP checksum
-	ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), 8+28);
-	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(ipChksum) >> 8) & 0xff; // ICMP checksum 
-	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
+	uint16_t icmpChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), 8+28);
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(icmpChksum) >> 8) & 0xff; // ICMP checksum 
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(icmpChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
 	dbgMsg("ICMP: Sending destination unreachable");
@@ -202,7 +296,7 @@ void sendICMPTimeExceeded(const char* interface, const uint8_t* originalPacket, 
 	int2byteIP(dstIP, &p[i]); i+=4; // destination IP
 	
 	// IP checksum
-	int ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+	uint16_t ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
 	p[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
 	p[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
 	
@@ -216,9 +310,9 @@ void sendICMPTimeExceeded(const char* interface, const uint8_t* originalPacket, 
 	for(j = ETHERNET_HEADER_LENGTH; j < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8; i++, j++) p[i] = originalPacket[j];
 
 	// ICMP checksum
-	ipChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), 8+28);
-	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(ipChksum) >> 8) & 0xff; // ICMP checksum 
-	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(ipChksum) & 0xff); // ICMP checksum
+	uint16_t icmpChksum = checksum((uint16_t*)(&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), 8+28);
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 2] = (htons(icmpChksum) >> 8) & 0xff; // ICMP checksum 
+	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(icmpChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
 	dbgMsg("ICMP: Sending TTL Exceeded");

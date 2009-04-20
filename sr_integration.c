@@ -52,11 +52,16 @@ void sr_integ_init(struct sr_instance* sr)
     pthread_mutex_init(&list_lock, NULL);
     pthread_mutex_init(&queue_lock, NULL);
     pthread_mutex_init(&rtable_lock, NULL);
+    pthread_mutex_init(&ping_lock, NULL);
     
     subsystem->arpQueue = NULL;
     subsystem->arpList = NULL;
     subsystem->arpTree = NULL;
     subsystem->rtable = NULL;
+
+	pingListHead = NULL;
+
+	srand(time(NULL));
 
 } /* -- sr_integ_init -- */
 
@@ -119,7 +124,7 @@ void sr_integ_input(struct sr_instance* sr,
 {
     /* -- INTEGRATION PACKET ENTRY POINT!-- */
 	
-    printf(" ** sr_integ_input(..) called \n");
+//    printf(" ** sr_integ_input(..) called \n");
     
 //	processPacket(sr, packet, len, interface);		
 	addThreadQueue(sr, packet, len, interface);
@@ -218,6 +223,7 @@ void sr_integ_destroy(struct sr_instance* sr)
     pthread_mutex_destroy(&list_lock);
     pthread_mutex_destroy(&queue_lock);
     pthread_mutex_destroy(&rtable_lock);
+    pthread_mutex_destroy(&ping_lock);
     
 } /* -- sr_integ_destroy -- */
 
