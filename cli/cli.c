@@ -564,18 +564,16 @@ static void cli_send_ping( int client_fd, uint32_t ip ) {
 	node->fd = client_fd;
 	node->identifier = identifier;
 	node->seqNum = seqNum;
-	node->time = time(NULL);
-
+	
 	pthread_mutex_lock(&ping_lock);
 		node->next = pingListHead;	
 		pingListHead = node;
+		sendICMPEchoRequest(out_if, ip, identifier, seqNum, &node->time);
 	pthread_mutex_unlock(&ping_lock);
-
-	sendICMPEchoRequest(out_if, ip, identifier, seqNum);
 
 	uint8_t ipStr[4];
 	int2byteIP(ip, ipStr);
-	sprintf(buf, "Ping request sent to %u.%u.%u.%u on interface:%s\n", ipStr[0], ipStr[1], ipStr[2], ipStr[3], out_if);
+	sprintf(buf, "Ping request sent to %u.%u.%u.%u\n", ipStr[0], ipStr[1], ipStr[2], ipStr[3]);
 	writenf(client_fd, buf);
 	free(out_if);
 }

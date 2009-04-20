@@ -1,5 +1,6 @@
 #include "router.h"
 #include "cli/socket_helper.h"
+#include <sys/time.h>
 
 void processICMP(const char* interface, const uint8_t* packet, unsigned len){
 	if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH] == 8){ // Echo Reqeust
@@ -10,13 +11,19 @@ void processICMP(const char* interface, const uint8_t* packet, unsigned len){
 	}
 }
 
+inline double deltaTimeMili(struct timeval *t1, struct timeval *t2){
+	return (double)abs((t1->tv_sec - t2->tv_sec) * 1e6 + (t1->tv_usec - t2->tv_usec) ) / (double)1e3;
+}
+
+// match incoming ping reply with set request
 void processEchoReply(const uint8_t* packet, unsigned len){
 	uint16_t identifier, seqNum;
+	struct timeval tv;
+	gettimeofday(&tv, 0);
 	
 	identifier = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4])));
 	seqNum = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 6])));
 	
-	printf("ident: %d\n", packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4]);
 	pthread_mutex_lock(&ping_lock);
 		struct pingRequestNode *node = pingListHead;
 		struct pingRequestNode *prev = NULL;
@@ -25,7 +32,8 @@ void processEchoReply(const uint8_t* packet, unsigned len){
 				writenf(node->fd, "Ping Reply from: %u.%u.%u.%u icmp_seq=%u ttl=%u time=%.3fms\n",
 							packet[ETHERNET_HEADER_LENGTH + 12], packet[ETHERNET_HEADER_LENGTH + 13],
 							packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15],
-							seqNum, packet[ETHERNET_HEADER_LENGTH + 8], time(NULL) - node->time);
+							seqNum, packet[ETHERNET_HEADER_LENGTH + 8], 
+							deltaTimeMili(&tv, &node->time));
 				if(prev){
 					prev->next = node->next;
 				}
@@ -39,7 +47,34 @@ void processEchoReply(const uint8_t* packet, unsigned len){
 			node = node->next;
 		}
 	pthread_mutex_unlock(&ping_lock);
+}
 
+// maintain the ping list
+void refreshPingList(void *dummy){	
+	while(1){
+		pthread_mutex_lock(&ping_lock);
+			struct timeval tv;
+			gettimeofday(&tv, 0);
+			struct pingRequestNode *node = pingListHead;
+			struct pingRequestNode *prev = NULL;
+			while(node){
+				if(deltaTimeMili(&tv, &node->time) > (PING_LIST_TIMEOUT * 1000)){
+					writenf(node->fd, "No Ping Reply\n");
+					if(prev){
+						prev->next = node->next;
+					}
+					else{
+						pingListHead = node->next;
+					}
+					free(node);
+					break;
+				}
+				prev = node;
+				node = node->next;
+			}
+		pthread_mutex_unlock(&ping_lock);	
+		sleep(PING_LIST_REFRESH);
+	}
 }
 
 
@@ -121,7 +156,7 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 }
 
 // sends out Ping Request with 56 byte payload
-void sendICMPEchoRequest(const char* interface, uint32_t dstIP, uint16_t identifier, uint16_t seqNum){ // dstIP, identifier, seqNum in host byte order
+void sendICMPEchoRequest(const char* interface, uint32_t dstIP, uint16_t identifier, uint16_t seqNum, struct timeval* time){ // dstIP, identifier, seqNum in host byte order
 	int i;
 	int len = 98; // 56 + 8 + 20 + 14
 	uint8_t *p = (uint8_t*)malloc(len*sizeof(uint8_t));
@@ -165,11 +200,8 @@ void sendICMPEchoRequest(const char* interface, uint32_t dstIP, uint16_t identif
 	p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 3] = (htons(icmpChksum) & 0xff); // ICMP checksum
 	
 	// send the packet out
-	uint8_t ipStr[4];
-	int2byteIP(getNextHopIP(dstIP), ipStr);
-	printf("!!!!!!!!next hop:%u.%u.%u.%u, if:%s\n", ipStr[0], ipStr[1], ipStr[2], ipStr[3], interface);
-
 	dbgMsg("ICMP: Sending Echo Request");
+	gettimeofday(time, 0);
 	sendIPpacket(get_sr(), interface, getNextHopIP(dstIP), p, len);
 	
 //	for(i = 0; i < len; i++) printf("%d: %d\n", i, p[i]);

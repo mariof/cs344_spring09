@@ -155,6 +155,8 @@ void processPacket(struct sr_instance* sr,
 		ipPacket[11] = csum & 0xFF;
 		
 	    dbgMsg("Forwarding received packet");
+//	    printf("from: %u.%u.%u.%u\n", ipPacket[12], ipPacket[13], ipPacket[14], ipPacket[15]);
+//	    printf("to: %u.%u.%u.%u\n", ipPacket[16], ipPacket[17], ipPacket[18], ipPacket[19]);
 	    sendIPpacket(sr, out_if, nextHopIP, (uint8_t*)packet, len);
 	}		
 
@@ -284,12 +286,16 @@ uint32_t getInterfaceIP(const char* interface){
 	int i;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	uint32_t retVal = 0;
+	
 	// find the interface by name
 	for(i = 0; i < subsystem->num_ifaces; i++){
-		if (!strcmp(interface, subsystem->ifaces[i].name))
+		if (!strcmp(interface, subsystem->ifaces[i].name)){
+			retVal = subsystem->ifaces[i].ip;
 			break;
+		}
 	}
-	return subsystem->ifaces[i].ip;
+	return retVal;
 }
 
 // returns a 60 byte ARP request packet, use sendARPrequest instead
@@ -361,7 +367,7 @@ uint32_t getNextHopIP(uint32_t ip){
 	int2byteIP(ip, si);
 	int2byteIP(retVal, di);
 	
-	printf("from: %u.%u.%u.%u to: %u.%u.%u.%u\n", si[0], si[1], si[2], si[3], di[0], di[1], di[2], di[3]);
+	//printf("from: %u.%u.%u.%u to: %u.%u.%u.%u\n", si[0], si[1], si[2], si[3], di[0], di[1], di[2], di[3]);
 	return retVal;
 }
 

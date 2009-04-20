@@ -15,6 +15,7 @@
 
 #define ARP_CACHE_REFRESH 2
 #define ARP_QUEUE_REFRESH 2
+#define PING_LIST_REFRESH 2
 
 struct sr_router{
 	struct arpQueueNode* arpQueue;
