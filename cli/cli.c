@@ -564,11 +564,15 @@ static void cli_send_ping( int client_fd, uint32_t ip ) {
 	node->fd = client_fd;
 	node->identifier = identifier;
 	node->seqNum = seqNum;
+	node->pingIP = ip;
+	node->lastTTL = 0;
+	strcpy(node->interface, out_if);
+	node->isTraceroute = 0;
 	
 	pthread_mutex_lock(&ping_lock);
 		node->next = pingListHead;	
 		pingListHead = node;
-		sendICMPEchoRequest(out_if, ip, identifier, seqNum, &node->time);
+		sendICMPEchoRequest(out_if, ip, identifier, seqNum, &node->time, 64);
 	pthread_mutex_unlock(&ping_lock);
 
 	uint8_t ipStr[4];
@@ -611,7 +615,41 @@ void cli_shutdown() {
 }
 
 void cli_traceroute( gross_ip_t* data ) {
-    cli_send_str( "not yet implemented: traceroute\n" );
+    //cli_send_str( "not yet implemented: traceroute\n" );
+    
+    char buf[128];
+    char *out_if = NULL;
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	out_if = lp_match(&(subsystem->rtable), data->ip); //output interface
+	if(out_if == NULL) return;
+
+	uint16_t identifier = rand() % 0xffff;
+	uint16_t seqNum = 0;
+
+	struct pingRequestNode* node = (struct pingRequestNode*)malloc(sizeof(struct pingRequestNode));
+	node->fd = fd; // global fd
+	node->identifier = identifier;
+	node->seqNum = seqNum;
+	node->pingIP = data->ip;
+	node->lastTTL = 0;
+	strcpy(node->interface, out_if);
+	node->isTraceroute = 1;
+	
+	uint8_t ipStr[4];
+	int2byteIP(data->ip, ipStr);
+	sprintf(buf, "Traceroute to %u.%u.%u.%u\n", ipStr[0], ipStr[1], ipStr[2], ipStr[3]);
+	writenf(fd, buf);
+
+	pthread_mutex_lock(&ping_lock);
+		node->next = pingListHead;	
+		pingListHead = node;
+		sendICMPEchoRequest(out_if, data->ip, identifier, seqNum, &node->time, 4);
+	pthread_mutex_unlock(&ping_lock);
+
+	free(out_if);
+    
 }
 
 void cli_opt_verbose( gross_option_t* data ) {

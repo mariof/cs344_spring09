@@ -9,8 +9,12 @@ void processICMP(const char* interface, const uint8_t* packet, unsigned len){
 	else if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH] == 0){ // Echo Reply
 		processEchoReply(packet, len);
 	}
+	else if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH] == 11){ // TTL expired
+		processTTLexpired(packet, len);
+	}
 }
 
+// calculates time difference in miliseconds
 inline double deltaTimeMili(struct timeval *t1, struct timeval *t2){
 	return (double)abs((t1->tv_sec - t2->tv_sec) * 1e6 + (t1->tv_usec - t2->tv_usec) ) / (double)1e3;
 }
@@ -29,11 +33,20 @@ void processEchoReply(const uint8_t* packet, unsigned len){
 		struct pingRequestNode *prev = NULL;
 		while(node){
 			if(node->identifier == identifier){
-				writenf(node->fd, "Ping Reply from: %u.%u.%u.%u icmp_seq=%u ttl=%u time=%.3fms\n",
-							packet[ETHERNET_HEADER_LENGTH + 12], packet[ETHERNET_HEADER_LENGTH + 13],
-							packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15],
-							seqNum, packet[ETHERNET_HEADER_LENGTH + 8], 
-							deltaTimeMili(&tv, &node->time));
+				if(node->isTraceroute == 0){
+					writenf(node->fd, "Ping Reply from: %u.%u.%u.%u icmp_seq=%u ttl=%u time=%.3fms\n",
+								packet[ETHERNET_HEADER_LENGTH + 12], packet[ETHERNET_HEADER_LENGTH + 13],
+								packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15],
+								seqNum, packet[ETHERNET_HEADER_LENGTH + 8], 
+								deltaTimeMili(&tv, &node->time));
+				}
+				else{
+					writenf(node->fd, "%u   %u.%u.%u.%u   time=%.3fms\n", node->lastTTL+1,
+								packet[ETHERNET_HEADER_LENGTH + 12], packet[ETHERNET_HEADER_LENGTH + 13],
+								packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15], 
+								deltaTimeMili(&tv, &node->time));
+					writenf(node->fd, "Traceroute compeleted.\n");
+				}
 				if(prev){
 					prev->next = node->next;
 				}
@@ -41,6 +54,40 @@ void processEchoReply(const uint8_t* packet, unsigned len){
 					pingListHead = node->next;
 				}
 				free(node);
+				break;
+			}
+			prev = node;
+			node = node->next;
+		}
+	pthread_mutex_unlock(&ping_lock);
+}
+
+// match TTL expired with a possible traceroute in progress
+void processTTLexpired(const uint8_t* packet, unsigned len){
+	uint16_t identifier, seqNum;
+	uint8_t sentTTL;
+	struct timeval tv;
+	gettimeofday(&tv, 0);
+	const int orig_ip_header_offset = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8;
+	
+	identifier = ntohs(*((uint16_t*)(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 4])));
+	seqNum = ntohs(*((uint16_t*)(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 6])));
+	sentTTL = packet[orig_ip_header_offset + 8];
+	
+	pthread_mutex_lock(&ping_lock);
+		struct pingRequestNode *node = pingListHead;
+		struct pingRequestNode *prev = NULL;
+		while(node){
+			if(node->identifier == identifier && node->isTraceroute == 1){
+				writenf(node->fd, "%u   %u.%u.%u.%u   time=%.3fms\n", node->lastTTL+1,
+							packet[ETHERNET_HEADER_LENGTH + 12], packet[ETHERNET_HEADER_LENGTH + 13],
+							packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15], 
+							deltaTimeMili(&tv, &node->time));
+							
+				node->seqNum++;			
+				node->lastTTL++;
+				sendICMPEchoRequest(node->interface, node->pingIP, node->identifier, node->seqNum, &node->time, node->lastTTL+1);
+										
 				break;
 			}
 			prev = node;
@@ -59,7 +106,14 @@ void refreshPingList(void *dummy){
 			struct pingRequestNode *prev = NULL;
 			while(node){
 				if(deltaTimeMili(&tv, &node->time) > (PING_LIST_TIMEOUT * 1000)){
-					writenf(node->fd, "No Ping Reply\n");
+					uint8_t strIP[4];
+					int2byteIP(node->pingIP, strIP);
+					if(node->isTraceroute == 0){
+						writenf(node->fd, "No Ping Reply from: %u.%u.%u.%u\n", strIP[0], strIP[1], strIP[2], strIP[3]);
+					}
+					else{
+						writenf(node->fd, "Traceroute to: %u.%u.%u.%u aborted.\n", strIP[0], strIP[1], strIP[2], strIP[3]);
+					}
 					if(prev){
 						prev->next = node->next;
 					}
@@ -156,7 +210,7 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 }
 
 // sends out Ping Request with 56 byte payload
-void sendICMPEchoRequest(const char* interface, uint32_t dstIP, uint16_t identifier, uint16_t seqNum, struct timeval* time){ // dstIP, identifier, seqNum in host byte order
+void sendICMPEchoRequest(const char* interface, uint32_t dstIP, uint16_t identifier, uint16_t seqNum, struct timeval* time, uint8_t ttl){ // dstIP, identifier, seqNum in host byte order
 	int i;
 	int len = 98; // 56 + 8 + 20 + 14
 	uint8_t *p = (uint8_t*)malloc(len*sizeof(uint8_t));
@@ -172,7 +226,7 @@ void sendICMPEchoRequest(const char* interface, uint32_t dstIP, uint16_t identif
 	p[i++] = 84; // total length (56+8+20)
 	p[i++] = (uint8_t)(rand() % 256); p[i++] = (uint8_t)(rand() % 256); // identification
 	p[i++] = 0; p[i++] = 0; // fragmentation
-	p[i++] = 64; // TTL
+	p[i++] = ttl; // TTL
 	p[i++] = 1; // protocol (ICMP)
 	p[i++] = 0; p[i++] = 0; // checksum (calculated later)
 	int2byteIP(getInterfaceIP(interface), &p[i]); i += 4; // source IP

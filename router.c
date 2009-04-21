@@ -79,6 +79,18 @@ void processPacket(struct sr_instance* sr,
 	    return;
 	}
 	
+	uint8_t ttl = ipPacket[8];
+
+	// check TTL
+	if(ttl < 1) {
+	    /* drop packet
+	     * send icmp packet back to the source
+	     */
+	    errorMsg("TTL went to 0. Dropping packet");
+	    sendICMPTimeExceeded(interface, packet, len);
+	    return;
+	}
+	
     uint32_t nextHopIP, dstIP;
 	char *out_if = NULL;
     		
@@ -130,7 +142,7 @@ void processPacket(struct sr_instance* sr,
 	    }
 	}
 	else{
-		uint8_t ttl = ipPacket[8];
+		ttl = ipPacket[8];
 
 		// check TTL
 		if(ttl <= 1) {
