@@ -2,6 +2,8 @@
 #include <string.h>
 #include "lwtcp/lwip/sys.h"
 
+static int workCnt = 0;
+
 // initializes thread pool
 void initThreadPool(){
     int i = 0;
@@ -104,6 +106,7 @@ void addThreadQueue(struct sr_instance* sr, const uint8_t* packet, unsigned len,
 		node->next = *head;
 		*head = node;
 	}
+	workCnt++;
 	pthread_cond_signal(&pool_cond);	
 	pthread_mutex_unlock(&pool_lock);
 	//dbgMsg("Job put in queue");
@@ -130,7 +133,7 @@ void addStopNode(struct threadWorker** head, struct threadWorker** tail){
 		node->next = *head;
 		*head = node;
 	}	
-		
+	workCnt++;		
 	pthread_cond_signal(&pool_cond);	
 	pthread_mutex_unlock(&pool_lock);
 }
@@ -140,11 +143,16 @@ struct threadWorker* takeThreadQueue(struct threadWorker** head, struct threadWo
 	struct threadWorker *retVal;
 
 	pthread_mutex_lock(&pool_lock);
-	pthread_cond_wait(&pool_cond, &pool_lock);
+
+	if(workCnt == 0)
+		pthread_cond_wait(&pool_cond, &pool_lock);
+
 	if(*tail == NULL){
 		retVal = NULL;
 	}
 	else{
+		workCnt--;
+//		printf("thread Cnt: %d\n", workCnt);
 		retVal = *tail;
 		if((*tail)->prev){
 			(*tail)->prev->next = NULL;
