@@ -136,11 +136,20 @@ void processPacket(struct sr_instance* sr,
 	    else if(ipPacket[9] == 6){ // TCP
 			sr_transport_input(ipPacket);
 	    } 
+	    else if(ipPacket[9] == 89){ // OSPF
+			processPWOSPF(interface, packet, len);
+	    } 
 	    else{ // protocol not supported
 			dbgMsg("Transport Protocol not supported");
 			sendICMPDestinationUnreachable(interface, packet, len, 2);
 	    }
 	}
+	else if (dstIP == ntohl(ALLSPFRouters)){
+	    if(ipPacket[9] == 89){ // OSPF
+			processPWOSPF(interface, packet, len);
+	    } 		
+	} 
+	
 	else{
 		ttl = ipPacket[8];
 
@@ -396,6 +405,10 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	if (i >= subsystem->num_ifaces){
 		errorMsg("Given interfaces does not exist");
 		return;
+	}
+	if (subsystem->ifaces[i].enabled == 0){
+		//errorMsg("Given interfaces is disabled");
+		return;		
 	}		
 	uint8_t *myMAC = subsystem->ifaces[i].addr;
 

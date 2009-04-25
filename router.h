@@ -7,11 +7,13 @@
 #include "icmpMsg.h"
 #include "routingTable.h"
 #include "threadPool.h"
+#include "pwospf.h"
 
 #define ETHERNET_HEADER_LENGTH 14
 #define ARP_HEADER_LENGTH 8
 #define IP_HEADER_LENGTH 20
 #define ICMP_HEADER_LENGTH 4
+#define OSPF_HEADER_LENGTH 24
 
 #define ARP_CACHE_REFRESH 2
 #define ARP_QUEUE_REFRESH 2
@@ -26,6 +28,7 @@ struct sr_router{
 	struct sr_vns_if* ifaces;
 	struct threadWorker* poolHead;
 	struct threadWorker* poolTail;
+	struct pwospf_router pwospf;
 };
 
 void processPacket(struct sr_instance* sr,

@@ -79,6 +79,7 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 {
     printf(" ** sr_integ_hw(..) called \n");
     
+    // start refresh threads
 	sys_thread_new(arpCacheRefresh, NULL);
 	sys_thread_new(arpQueueRefresh, NULL);
 	sys_thread_new(refreshPingList, NULL);
@@ -92,6 +93,17 @@ void sr_integ_hw_setup(struct sr_instance* sr)
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     // Load routing table
     fill_rtable(&(subsystem->rtable));
+    
+    // init pwospf
+    initPWOSPF(sr);
+
+	// start pwospf threads
+	struct pwospf_if* node = subsystem->pwospf.if_list;
+	while(node){
+		sys_thread_new(pwospfSendHelloThread, (void*)node);
+		node = node->next;
+	}
+	sys_thread_new(pwospfSendLSUThread, NULL);
 
 	// Load thread pool system
 	initThreadPool();
