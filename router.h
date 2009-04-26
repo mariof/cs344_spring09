@@ -43,6 +43,7 @@ uint8_t* getMAC(struct sr_instance* sr, uint32_t ip, const char* name);
 uint8_t* generateARPreply(const uint8_t *packet, size_t len, uint8_t *mac);
 void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip);
 void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, uint8_t* packet, unsigned len);
+int isMyIP(uint32_t ip);
 
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);

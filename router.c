@@ -303,6 +303,7 @@ void int2byteIP(uint32_t ip, uint8_t *byteIP){
 	byteIP[0] = (uint8_t)(nip % 256);	
 }
 
+// returns interface IP
 uint32_t getInterfaceIP(const char* interface){
 	int i;
 	struct sr_instance* sr = get_sr();
@@ -313,6 +314,23 @@ uint32_t getInterfaceIP(const char* interface){
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (!strcmp(interface, subsystem->ifaces[i].name)){
 			retVal = subsystem->ifaces[i].ip;
+			break;
+		}
+	}
+	return retVal;
+}
+
+// returns 1 if given IP is one of the router's interfaces
+int isMyIP(uint32_t ip){
+	int i;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	uint32_t retVal = 0;
+	
+	// loop interfaces
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if (subsystem->ifaces[i].ip == ip){
+			retVal = 1;
 			break;
 		}
 	}

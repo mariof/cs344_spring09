@@ -3,6 +3,7 @@
 
 #define ALLSPFRouters 0xe0000005 // 224.0.0.5 in nbo
 #define HELLOINT 10
+#define NEIGHBOR_TIMEOUT 3 // timeout time =  NEIGHBOR_TIMEOUT x HELLOINT
 #define LSUINT 30
 
 struct pwospf_router{
@@ -36,5 +37,6 @@ void sendHello(uint32_t ifIP);
 void processPWOSPF(const char* interface, uint8_t* packet, unsigned len);
 struct pwospf_if* findPWOSPFif(struct pwospf_router* router, uint32_t ip);
 struct pwospf_neighbor* findOSPFNeighbor(struct pwospf_if* interface, uint32_t ip);
+void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len);
 
 #endif // PWOSPF_H
