@@ -6,6 +6,10 @@
 #define NEIGHBOR_TIMEOUT 3 // timeout time =  NEIGHBOR_TIMEOUT x HELLOINT
 #define LSUINT 30
 
+#define LSU_DEFAULT_TTL 64
+
+#define AREA_ID 1
+
 struct pwospf_router{
 	uint32_t routerID;
 	uint32_t areaID;
@@ -34,6 +38,7 @@ void initPWOSPF(struct sr_instance* sr);
 void pwospfSendHelloThread(void* arg);
 void pwospfSendLSUThread(void* dummy);
 void sendHello(uint32_t ifIP);
+void sendLSU();
 void processPWOSPF(const char* interface, uint8_t* packet, unsigned len);
 struct pwospf_if* findPWOSPFif(struct pwospf_router* router, uint32_t ip);
 struct pwospf_neighbor* findOSPFNeighbor(struct pwospf_if* interface, uint32_t ip);

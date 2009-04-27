@@ -5,6 +5,7 @@
 void pwospfSendHelloThread(void* arg){
 	struct pwospf_if* iface = (struct pwospf_if*)arg;
 	while(1){
+		int updateLSU = 0;
 		sendHello(iface->ip);
 		pthread_mutex_lock(&iface->neighbor_lock);
 			struct pwospf_neighbor* nbor = iface->neighbor_list;
@@ -16,9 +17,7 @@ void pwospfSendHelloThread(void* arg){
 						free(nbor);
 						nbor = prev_nbor->next;
 						dbgMsg("PWOSPF: Hello packet timeout");
-						/* 
-							TODO: send LSU updates (note: still holding neighbor lock here)						
-						*/
+						updateLSU = 1;
 					}
 				}
 				else{
@@ -26,7 +25,12 @@ void pwospfSendHelloThread(void* arg){
 					nbor = nbor->next;
 				}
 			}
-		pthread_mutex_unlock(&iface->neighbor_lock);		
+		pthread_mutex_unlock(&iface->neighbor_lock);
+	
+		if(updateLSU){ 
+			sendLSU();
+		}		
+	
 		sleep(iface->helloint);
 	}
 }
@@ -36,6 +40,7 @@ void pwospfSendLSUThread(void* dummy){
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	while(1){
+		sendLSU();
 		sleep(subsystem->pwospf.lsuint);
 	}
 }
@@ -225,6 +230,126 @@ void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
 	}
 }
 
+// generate and send a LSU packet from all enabled interfaces 
+void sendLSU(){
+	static uint16_t sequence = 0;
+	int i, j, k;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	int len = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8;
+	uint32_t advCnt = 0;
+	uint8_t *packet;
+
+	struct pwospf_if* iface = subsystem->pwospf.if_list;
+
+	// count number of advertisements
+	while(iface){
+		if(isEnabled(iface->ip)){
+			pthread_mutex_lock(&iface->neighbor_lock);
+			struct pwospf_neighbor* nbor = iface->neighbor_list;
+			while(nbor){
+				advCnt++;
+				nbor = nbor->next;
+			}
+			pthread_mutex_unlock(&iface->neighbor_lock);		
+		}			
+		iface = iface->next;
+	}
+
+
+	// calculate packet length
+	len += advCnt * 12;
+	packet = (uint8_t*)malloc(len*sizeof(uint8_t));
+
+
+	// fill Ethernet Header
+	for (i = 0; i < 6; i++) packet[i] = 255;
+	for (i = 6, j = 0; i < 12; i++, j++) packet[i] = 0;	
+	packet[12] = 8; packet[13] = 0;
+
+	// IP header
+	i = ETHERNET_HEADER_LENGTH;
+	packet[i++] = 69; // version and length 
+	packet[i++] = 0; // TOS
+	*((uint16_t*)&packet[i]) = htons(len - ETHERNET_HEADER_LENGTH); i+=2; // total length
+	packet[i++] = (uint8_t)(rand() % 256); packet[i++] = (uint8_t)(rand() % 256); // identification
+	packet[i++] = 0; packet[i++] = 0; // fragmentation
+	packet[i++] = 64; // TTL
+	packet[i++] = 89; // protocol (OSPF)
+	packet[i++] = 0; packet[i++] = 0; // checksum (calculated later)
+	i += 4; // place for src IP
+	int2byteIP(ntohl(ALLSPFRouters), &packet[i]); i+=4; // destination IP
+	
+	// OSPF header
+	packet[i++] = 2; // version
+	packet[i++] = 4; // type (LSU)
+	*((uint16_t*)&packet[i]) = htons(len - ETHERNET_HEADER_LENGTH - IP_HEADER_LENGTH); i+=2; // ospf length (header + data)
+	*((uint32_t*)&packet[i]) = htonl(subsystem->pwospf.routerID); i+=4; // router ID
+	*((uint32_t*)&packet[i]) = htonl(subsystem->pwospf.areaID); i+=4; // area ID
+	packet[i++] = 0; packet[i++] = 0; // checksum (calculated later)
+	packet[i++] = 0; packet[i++] = 0; // Autype
+	packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; // Authentication #1
+	packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; // Authentication #2
+
+	// LSU packet
+	*((uint16_t*)&packet[i]) = htons(sequence); i+=2; // sequence
+	*((uint16_t*)&packet[i]) = htons(LSU_DEFAULT_TTL); i+=2; // lsu ttl
+	*((uint32_t*)&packet[i]) = htonl(advCnt); i+=4; // number of advertisements
+
+	// add neighbor info to the packet
+	iface = subsystem->pwospf.if_list;
+	while(iface){
+		if(isEnabled(iface->ip)){
+			pthread_mutex_lock(&iface->neighbor_lock);
+			struct pwospf_neighbor* nbor = iface->neighbor_list;
+			while(nbor){
+				*((uint32_t*)&packet[i]) = htonl(nbor->ip & iface->netmask); i+=4; // subnet
+				*((uint32_t*)&packet[i]) = htonl(iface->netmask); i+=4; // mask
+				*((uint32_t*)&packet[i]) = htonl(nbor->id); i+=4; // router ID				
+				nbor = nbor->next;
+			}				
+			pthread_mutex_unlock(&iface->neighbor_lock);		
+		}
+			
+		iface = iface->next;
+	}
+	
+	// OSPF checksum (make sure Authentication fileds are set to 0 here)
+	packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 12] = 0; // checksum
+	packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 13] = 0; // checksum
+	uint16_t ospfChksum = 
+		checksum(	(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH]), 
+					len - (ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH) );
+	packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 12] = (htons(ospfChksum) >> 8) & 0xff; // OSPF checksum 
+	packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 13] = (htons(ospfChksum) & 0xff); // OSPF checksum
+	
+	// send the packet out	
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if ( !(subsystem->ifaces[i].enabled) ){
+			continue;
+		}
+
+		// update Ethernet Header
+		uint8_t *myMAC = subsystem->ifaces[i].addr;
+		for (k = 6, j = 0; k < 12; k++, j++) packet[k] = myMAC[j];	
+
+		// src ip
+		int2byteIP(subsystem->ifaces[i].ip, &packet[ETHERNET_HEADER_LENGTH + 12]); // source IP
+
+		// IP checksum
+		packet[ETHERNET_HEADER_LENGTH + 10] = 0; packet[ETHERNET_HEADER_LENGTH + 11] = 0; // checksum (calculated later)
+		uint16_t ipChksum = checksum((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+		packet[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
+		packet[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
+	
+		// send packet
+		sr_integ_low_level_output(sr, packet, len, subsystem->ifaces[i].name);	
+	}
+
+	sequence++;
+	free(packet);
+}
+
 // sending a Hello packet out the interface with ifIP
 void sendHello(uint32_t ifIP){
 	int i, j, k;
@@ -319,8 +444,8 @@ void initPWOSPF(struct sr_instance* sr){
 	int i;
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
-	subsystem->pwospf.routerID = rand(); // this is [0, 32767] but still good enough
-	subsystem->pwospf.areaID = 1; // this should be the same for all routers
+	subsystem->pwospf.routerID = subsystem->ifaces[0].ip; // 0-th interface??? should it rather be eth0???
+	subsystem->pwospf.areaID = AREA_ID; // this should be the same for all routers
 	subsystem->pwospf.lsuint = LSUINT;
 	subsystem->pwospf.if_list = NULL;
 

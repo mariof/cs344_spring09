@@ -337,6 +337,23 @@ int isMyIP(uint32_t ip){
 	return retVal;
 }
 
+// returns 1 if the interface with given IP is enabled
+int isEnabled(uint32_t ip){
+	int i;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	uint32_t retVal = 0;
+	
+	// loop interfaces
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if (subsystem->ifaces[i].ip == ip){
+			retVal = subsystem->ifaces[i].enabled;
+			break;
+		}
+	}
+	return retVal;
+}
+
 // returns a 60 byte ARP request packet, use sendARPrequest instead
 uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
 	int i, j;
