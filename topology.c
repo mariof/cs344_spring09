@@ -1,4 +1,6 @@
 #include "topology.h"
+#include "pwospf.h"
+#include "router.h"
 
 int add_router(uint32_t router_id, uint16_t last_seq)
 {
@@ -114,10 +116,143 @@ int update_lsu(topo_router *adj_list)
     return ret;
 }
 
+/* 
+ * ------------------------------- helper functions to run dijkstra's algo ------------------
+ * */
+
+static int get_index(topo_router **rtr_vec, int n, uint32_t router_id) {
+    int i;
+    for(i = 0; i < n; i++) {
+	if(rtr_vec[i]->router_id == router_id)
+	    return i;
+    }
+    return -1;
+}
+
+static int get_min(const int *dist_vec, const int *tight_vec, int n) {
+    int i, min_index = -1, min_dist = INT_MAX;
+    for(i = 0; i < n; i++) {
+	if(dist_vec[i] < min_dist && !tight_vec[i]) {
+	    min_index = i;
+	    min_dist = dist_vec[i];
+	}
+    }
+    return min_index;
+}
+
+static int successor(int *adj_mat, int n, int u, int z)
+{
+    return (adj_mat[u*n+z] < INT_MAX && u != z);
+}
+
 void update_rtable()
 {
     int n = num_routers;
     //malloc matrix
     //[i][j] = [i*n+j]
     int *adj_mat = malloc(sizeof(int)*n*n);
+    topo_router **rtr_vec = malloc(sizeof(topo_router*)*n);
+    int *dist_vec = malloc(sizeof(int)*n);
+    int *parent_vec = malloc(sizeof(int)*n);
+    int *tight_vec = malloc(sizeof(int)*n);
+
+    // fill rtr_vec, dist_vec, parent_vec, tight_vec
+    int i, j;
+    topo_router *cur_rtr = topo_head;
+    for(i = 0; i < n; i++, cur_rtr = cur_rtr->next) {
+	rtr_vec[i] = cur_rtr;
+	dist_vec[i] = INT_MAX;
+	parent_vec[i] = -1;
+	tight_vec[i] = 0;
+    }
+
+    // fill adj_mat
+    for(i = 0, cur_rtr = topo_head; i < n; i++, cur_rtr = cur_rtr->next) {
+	lsu_ad *cur_ad = cur_rtr->ads;
+	for(j = 0; j < n; j++) {
+	    if(cur_ad == NULL) {
+		adj_mat[i*n+j] = INT_MAX;
+		continue;
+	    }
+	    if(cur_ad->router_id != rtr_vec[j]->router_id) {
+		adj_mat[i*n+j] = INT_MAX;
+		continue;
+	    }
+	    else if(cur_ad->router_id == rtr_vec[j]->router_id) {
+		adj_mat[i*n+j] = 1;
+		cur_ad = cur_ad->next;
+	    }
+	}
+    }
+
+    // print adj_mat
+    /*
+    printf("----------------------------------------------\n");
+    printf("----------------------------------------------\n");
+    for(i = 0, cur_rtr = topo_head; i < n; i++, cur_rtr = cur_rtr->next) {
+	printf("%d, ", cur_rtr->router_id);
+    }
+    printf("\n");
+    printf("----------------------------------------------\n");
+    for(i = 0; i < n; i++) {
+	for(j = 0; j < n; j++) {
+	    printf("%d\t", adj_mat[i*n+j]);
+	}
+	printf("\n");
+    }
+    printf("----------------------------------------------\n");
+    printf("----------------------------------------------\n");
+    */
+
+    // run dijkstra's algo
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int z, u;
+    int s = get_index((topo_router**)rtr_vec, n, subsystem->pwospf.routerID); // source router
+    if(s < 0) {
+	printf("Failed to get index of myself...something's wrong!\n");
+    }
+    dist_vec[s] = 0;
+    parent_vec[s] = s;
+    for(i = 0; i < n; i++) {
+	u = get_min(dist_vec, tight_vec, n);
+	tight_vec[u] = 1;
+	if(dist_vec[u] == INT_MAX)
+	    continue;
+	for(z = 0; z < n; z++) {
+	    if(successor(adj_mat, n, u, z) && !tight_vec[z] 
+		    && adj_mat[u*n+z] < INT_MAX 
+		    && dist_vec[u]+adj_mat[u*n+z] < dist_vec[z]) {
+		dist_vec[z] = dist_vec[u] + adj_mat[u*n+z];
+		parent_vec[z] = u;
+	    }
+	}
+    }
+
+
+    // Sort vectors by distance - increasing order
+    // simple bubble sort
+    for (i=0; i<n-1; i++) {
+	for (j=0; j<n-1-i; j++)
+	    if (dist_vec[j+1] < dist_vec[j]) {  /* compare the two neighbors */
+		int tmp_int;
+		topo_router *tmp_rtr;
+		// swap dist_vec neighbors
+		tmp_int = dist_vec[j];
+		dist_vec[j] = dist_vec[j+1];
+		dist_vec[j+1] = tmp_int;
+		// swap rtr_vec neighbors
+		tmp_rtr = rtr_vec[j];
+		rtr_vec[j] = rtr_vec[j+1];
+		rtr_vec[j+1] = tmp_rtr;
+		// swap parent_vec neighbors
+		tmp_int = parent_vec[j];
+		parent_vec[j] = parent_vec[j+1];
+		parent_vec[j+1] = tmp_int;
+	    }
+    }
+
+    
+    // For each router, reconstruct path
+
 }
