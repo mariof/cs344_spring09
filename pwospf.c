@@ -1,4 +1,5 @@
 #include "router.h"
+#include "topology.h"
 
 // Thread that sends Hello packets, one thread per interface
 // Also checks for Hello timeouts (note: it might be better to do this with alarm toghether with LSUs)
@@ -30,7 +31,7 @@ void pwospfSendHelloThread(void* arg){
 		if(updateLSU){ 
 			sendLSU();
 		}		
-	
+		
 		sleep(iface->helloint);
 	}
 }
@@ -99,6 +100,7 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 	sum16 = ~((uint16_t)(sum & 0xFFFF));
 
 	free(ospfPacket);
+	
 	if(sum16 != 0) {
 	    /* checksum error
 	     * drop packet
@@ -167,12 +169,82 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 			return;
 		}
 
-		// TODO: check sequence number in the topology database (drop if invalid)
+		uint16_t seqNum = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH]));
+		uint32_t advNum = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]));
+
+		// if router is not in the list, get_last_seq returns -1, which will always be less than seqNum
+		if((int)seqNum <= get_last_seq(routerID)){
+			errorMsg("LSU packet sequence number invalid. Dropping the packet.");
+			return;
+		}
 		
-		// TODO: check packet hash(?) in the topology database (ignore if the same)
+		if(len < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + 12*advNum){
+			errorMsg("LSU packet too short. Dropping the packet");
+			return;
+		}
+
+
+		// create topology data structures					
+		topo_router *head = (topo_router*)malloc(sizeof(topo_router));
+		head->router_id = routerID;
+		head->area_id = areaID;
+		head->last_seq = seqNum;
+		head->last_update_time = time(NULL);
+		head->num_ads = advNum;
+		head->next = NULL;
+		head->prev = NULL;
+		head->ads = NULL;
 		
-		// TODO: update the topology database
+		for(i = 0; i < advNum; i++){
+			lsu_ad *node = (lsu_ad*)malloc(sizeof(lsu_ad));
+			node->subnet = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 0]));
+			node->mask = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 4]));
+			node->router_id = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 8]));
+			node->next = NULL;
+			node->prev = NULL;
+			
+			if(head->ads == NULL){
+				head->ads = node;
+				continue;
+			}
+			
+			// insert node into sorted list
+			lsu_ad *tmp = head->ads;
+			while(tmp){
+				if(node->router_id < tmp->router_id) break;
+				tmp = tmp->next;
+			}
+			if(tmp==NULL){ // find last list element and insert after it
+				tmp = head->ads;
+				while(tmp){
+					if(tmp->next){
+						tmp = tmp->next;
+					}
+					else{
+						break;
+					}
+				}
+				tmp->next = node;
+				node->prev = tmp;
+			}
+			else if(tmp->prev == NULL){ // insert before first element
+				node->next = tmp;
+				tmp->prev = node;
+				head->ads = node;
+			}
+			else{
+				node->next = tmp;
+				node->prev = tmp->prev;
+				tmp->prev->next = node;
+				tmp->prev = node;
+			}
+		}
 		
+		
+		// this function will not do the update unless it's neccessary		
+		update_lsu(head);	
+		
+		// forward the packet on all interfaces (except the incoming one)		
 		forwardLSUpacket(interface, packet, len);
 		
 	}
