@@ -6,6 +6,79 @@ int add_router(uint32_t router_id, uint16_t last_seq)
 {
     //acquire lock
     pthread_mutex_lock(&topo_lock);
+
+    topo_router *rtr = topo_head;
+    topo_router *new_rtr;
+    if(rtr == NULL) {
+	new_rtr = malloc(sizeof(topo_router));
+	new_rtr->router_id = router_id;
+	new_rtr->last_seq = last_seq;
+	new_rtr->next = new_rtr->prev = NULL;
+	rtr = new_rtr;
+	num_routers++;
+	return 1;
+    }
+
+    if(rtr->router_id > router_id) {
+	new_rtr = malloc(sizeof(topo_router));
+	new_rtr->router_id = router_id;
+	new_rtr->last_seq = last_seq;
+	new_rtr->next = new_rtr->prev = NULL;
+	new_rtr->next = rtr;
+	rtr->prev = new_rtr;
+	rtr = new_rtr;
+	num_routers++;
+	return 1;
+    }
+
+    while(rtr->next != NULL) {
+       	if(router_id < rtr->next->router_id) {
+	    break;
+	}
+	rtr = rtr->next;
+    }
+
+    if(rtr->router_id == router_id) {
+	// router exists
+	// XXX: should the sequence number be updated?
+	return 0;
+    }
+    else {
+	// insert new router
+	new_rtr = malloc(sizeof(topo_router));
+	new_rtr->router_id = router_id;
+	new_rtr->last_seq = last_seq;
+	new_rtr->next = new_rtr->prev = NULL;
+	if(rtr->next != NULL) {
+	    rtr->next->prev = new_rtr;
+	}
+	new_rtr->next = rtr->next;
+	new_rtr->prev = rtr;
+	rtr->next = new_rtr;
+	num_routers++;
+	return 1;
+    }
+
+    //release lock
+    pthread_mutex_unlock(&topo_lock);
+    return -1;
+}
+
+int get_last_seq(uint32_t router_id)
+{
+    //acquire lock
+    pthread_mutex_lock(&topo_lock);
+
+    topo_router *rtr = topo_head;
+    if(rtr == NULL) {
+	return -1;
+    }
+    while(rtr != NULL) {
+	if(rtr->router_id == router_id)
+	    return rtr->last_seq;
+	rtr = rtr->next;
+    }
+
     //release lock
     pthread_mutex_unlock(&topo_lock);
     return -1;
@@ -15,15 +88,111 @@ int rm_router(uint32_t router_id)
 {
     //acquire lock
     pthread_mutex_lock(&topo_lock);
+
+    topo_router *rtr = topo_head;
+
+    while(rtr != NULL) {
+	if(rtr->router_id == router_id) {
+	    // unlink the adj list from the topo db
+	    if(rtr->prev != NULL) {
+		rtr->prev->next = rtr->next;
+	    }
+	    else {
+		topo_head = rtr->next;
+	    }
+	    if(rtr->next != NULL) {
+		rtr->next->prev = rtr->prev;
+	    }
+
+	    // free the adj list
+	    // free the ads first
+	    lsu_ad *old_ad, *prev_ad;
+	    old_ad = rtr->ads;
+	    if(old_ad != NULL) {
+		while(old_ad->next != NULL) {
+		    old_ad = old_ad->next;
+		}
+		while(old_ad->prev != NULL) {
+		    prev_ad = old_ad->prev;
+		    free(old_ad);
+		    old_ad = prev_ad;
+		}
+	    }
+	    // free rtr
+	    free(rtr);
+	    return 1;
+	}
+	rtr = rtr->next;
+    }
+
     //release lock
     pthread_mutex_unlock(&topo_lock);
-    return -1;
+    return 0;
 }
 
 int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t nbr_router_id)
 {
     //acquire lock
     pthread_mutex_lock(&topo_lock);
+
+    topo_router *rtr = topo_head;
+
+    while(rtr != NULL) {
+	rtr = rtr->next;
+	if(rtr->router_id == router_id) {
+	    lsu_ad *curr_ad = rtr->ads;
+	    lsu_ad *new_ad;
+	    if(curr_ad == NULL) {
+		new_ad = malloc(sizeof(lsu_ad));
+		new_ad->router_id = nbr_router_id;
+		new_ad->subnet = subnet;
+		new_ad->mask = mask;
+		new_ad->next = new_ad->prev = NULL;
+		curr_ad = new_ad;
+		return 1;
+	    }
+	    if(curr_ad->router_id > nbr_router_id) {
+		new_ad = malloc(sizeof(lsu_ad));
+		new_ad->router_id = nbr_router_id;
+		new_ad->subnet = subnet;
+		new_ad->mask = mask;
+		new_ad->next = new_ad->prev = NULL;
+
+		curr_ad->prev = new_ad;
+		new_ad->next = curr_ad;
+		rtr->ads = new_ad;
+	    }
+
+	    while(curr_ad->next != NULL) {
+		if(curr_ad->next->router_id > nbr_router_id)
+		    break;
+		curr_ad = curr_ad->next;
+	    }
+	    if(curr_ad->router_id == nbr_router_id) {
+		// router ad exists
+		if(curr_ad->subnet == subnet && curr_ad->mask == mask) {
+		    return 0;
+		}
+		curr_ad->subnet = subnet;
+		curr_ad->mask = mask;
+		return 1;
+	    }
+	    else {
+		new_ad = malloc(sizeof(lsu_ad));
+		new_ad->router_id = nbr_router_id;
+		new_ad->subnet = subnet;
+		new_ad->mask = mask;
+		new_ad->next = new_ad->prev = NULL;
+
+		if(curr_ad->next != NULL)
+		    curr_ad->next->prev = new_ad;
+		new_ad->next = curr_ad->next;
+		curr_ad->next = new_ad;
+		new_ad->prev = curr_ad;
+		return 1;
+	    }
+	}
+    }
     //release lock
     pthread_mutex_unlock(&topo_lock);
     return -1;
@@ -69,6 +238,9 @@ int update_lsu(topo_router *adj_list)
 	    new_ad = new_ad->next;
 	}
 	if (old_ad == new_ad) { // == NULL
+	    // No change!
+	    // just update the last received sequence number
+	    rtr->last_seq = adj_list->last_seq;
 	    ret = 0;
 	}
 	else {
@@ -257,6 +429,20 @@ void update_rtable()
 
     
     // For each router, reconstruct path
+    for(i = 0; i < n; i++) {
+	if(i == s) {
+	    // I'm da ROUTER!
+	    // add all my subnets to the routing table
+	    continue;
+	}
+
+	int curr_index = i;
+	while(parent_vec[curr_index] != s) {
+	    curr_index = parent_vec[curr_index];
+	}
+	//curr_index is the index of the gateway router
+	//add all subnets advertised by it to the routing table
+    }
 
     //release lock
     pthread_mutex_unlock(&topo_lock);

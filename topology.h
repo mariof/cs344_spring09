@@ -33,9 +33,28 @@ pthread_mutex_t topo_lock;
 topo_router *topo_head;
 int num_routers;
 
+/*
+ * returns:
+ ** 1 if the topology needed an update
+ ** 0 otherwise
+ */
 int add_router(uint32_t router_id, uint16_t seq);
-uint16_t get_last_seq(uint32_t router_id);
+/* 
+ * returns -1 if router_id doesn't exist in the topology
+ */
+int get_last_seq(uint32_t router_id);
+/*
+ * returns:
+ ** 1 if the topology needed an update
+ ** 0 otherwise
+ */
 int rm_router(uint32_t router_id);
+/*
+ * returns:
+ ** 1 if the topology needed an update
+ ** 0 if topology needed no update
+ ** -1 if router_id wasn't found
+ */
 int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t nbr_router_id);
 
 /* takes an adjacency list of nodes
