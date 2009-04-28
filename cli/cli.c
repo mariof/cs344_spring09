@@ -314,6 +314,8 @@ void cli_show_ospf_neighbors() {
     char buf[128];
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	struct pwospf_if *pw_if = subsystem->pwospf.if_list;
 	
     uint8_t ip[4];
@@ -337,6 +339,7 @@ void cli_show_ospf_neighbors() {
 		}
 		pw_if = pw_if->next;
     }
+    pthread_rwlock_unlock(&subsystem->if_lock);
 }
 
 void cli_show_ospf_topo() {
