@@ -642,6 +642,7 @@ int router_interface_set_enabled( struct sr_instance* sr, const char* name, int 
 		return 1;
 	    else {
 		subsystem->ifaces[i].enabled = enabled;
+		sendLSU();
 		return 0;
 	    }
 	}
