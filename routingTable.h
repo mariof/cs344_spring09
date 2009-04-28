@@ -34,6 +34,10 @@ int del_ip(rtableNode **head, uint32_t ip, uint8_t netmask, int is_static);
 void del_route_type(rtableNode **head, int is_static);
 char *lp_match(rtableNode **head, uint32_t ip);
 uint32_t gw_match(rtableNode **head, uint32_t ip);
+/* Replace all the dynamic routing table entries
+ * with those from the shadow table
+ */
+void update_rtable(rtableNode **head, rtableNode *shadow_table);
 
 /**
  * ---------------------------------------------------------------------------
