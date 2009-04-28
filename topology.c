@@ -369,6 +369,66 @@ static int successor(int *adj_mat, int n, int u, int z)
     return (adj_mat[u*n+z] < INT_MAX && u != z);
 }
 
+/*
+ * basically the same implementation as the one in routingTable, but
+ * without locks, and
+ * table entry comparison is done based only on ip&netmask
+ */
+static void insert_shadow_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if, int is_static)
+{
+    //check output_if size
+    if(strlen(output_if) >= SR_NAMELEN) {
+	return;
+    }
+
+    //create new node
+    rtableNode *node = (rtableNode*) malloc(sizeof(rtableNode));
+    node->ip = ip;
+    node->netmask = netmask;
+    node->gateway = gateway;
+    strcpy(node->output_if, output_if);
+    node->is_static = is_static;
+    node->next = node->prev = NULL;
+
+    //Check if the list is empty
+    if(*head == NULL) {
+	(*head) = node;
+	return;
+    }
+
+    //scan the list until you hit the right netmask
+    rtableNode *cnode = *head;
+    if(netmask > cnode->netmask || (netmask == cnode->netmask && ip > cnode->ip)) {
+	*head = node;
+	node->next = cnode;
+	cnode->prev = node;
+    }
+    else {
+	while(cnode->next != NULL) {
+	    if(netmask > cnode->next->netmask || (netmask == cnode->next->netmask && ip > cnode->next->ip)) {
+		break;
+	    }
+	    cnode = cnode->next;
+	}
+
+	//check for equality to prevent adding duplicate nodes
+	if(((cnode->ip)&(cnode->netmask)) == (ip&netmask)) {
+	    free(node);
+	    return;
+	}
+
+	// insert new node
+	if(cnode->next != NULL) {
+	    (cnode->next)->prev = node;
+	}
+	node->next = cnode->next;
+	node->prev = cnode;
+	cnode->next = node;
+    }
+
+    return;
+}
+
 void update_rtable()
 {
     int n = num_routers;
@@ -481,10 +541,16 @@ void update_rtable()
 
     
     // For each router, reconstruct path
+    rtableNode *shadow = NULL;
     for(i = 0; i < n; i++) {
 	if(i == s) {
 	    // I'm da ROUTER!
 	    // add all my subnets to the routing table
+	    lsu_ad *nbr = rtr_vec[i]->ads;
+	    while(nbr != NULL) {
+		//get if,gw info from pwospf
+		//insert_shadow_node
+	    }
 	    continue;
 	}
 
@@ -494,7 +560,13 @@ void update_rtable()
 	}
 	//curr_index is the index of the gateway router
 	//add all subnets advertised by it to the routing table
+	lsu_ad *nbr = rtr_vec[i]->ads;
+	while(nbr != NULL) {
+	    //get if,gw info from pwospf
+	    //insert_shadow_node
+	}
     }
+    rebuild_rtable(&(subsystem->rtable), shadow);
 
     // release all allocated memory
     free(adj_mat);

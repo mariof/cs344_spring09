@@ -43,7 +43,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
 	}
 
 	//check for equality to prevent adding duplicate nodes
-	if((cnode->ip == ip) && ((uint8_t)cnode->netmask == (uint8_t)netmask) && (cnode->is_static == is_static)) {
+	if((cnode->ip == ip) && (cnode->netmask == netmask) && (cnode->is_static == is_static)) {
 	    cnode->gateway = gateway;
 	    strcpy(cnode->output_if, output_if);
 	    free(node);
