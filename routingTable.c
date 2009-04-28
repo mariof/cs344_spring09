@@ -188,6 +188,80 @@ uint32_t gw_match(rtableNode **head, uint32_t ip)
     return gw;
 }
 
+void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
+{
+    // acquire lock
+    pthread_mutex_lock(&rtable_lock);
+
+    // purge all the dynamic entries
+    int is_static = 0;
+    rtableNode *node = *head;
+    while(node != NULL) {
+	if(node->is_static == is_static) {
+	    //delete node
+	    if(node->prev != NULL) {
+		(node->prev)->next = node->next;
+	    }
+	    if(node->next != NULL) {
+		(node->next)->prev = node->prev;
+	    }
+	    free(node);
+	}
+	node = node->next;
+    }
+
+    // add all the entries from the shadow table
+    node = shadow_table;
+    rtableNode *nxt_node = NULL;
+
+    while(node != NULL) {
+	nxt_node = node->next;
+
+	//Check if the list is empty
+	if(*head == NULL) {
+	    (*head) = node;
+	    node = nxt_node;
+	    continue;
+	}
+
+	//scan the list until you hit the right netmask
+	rtableNode *cnode = *head;
+	if(node->netmask > cnode->netmask || (node->netmask == cnode->netmask && node->ip > cnode->ip)) {
+	    *head = node;
+	    node->next = cnode;
+	    cnode->prev = node;
+	}
+	else {
+	    while(cnode->next != NULL) {
+		if(node->netmask > cnode->next->netmask || (node->netmask == cnode->next->netmask && node->ip > cnode->next->ip)) {
+		    break;
+		}
+		cnode = cnode->next;
+	    }
+
+	    //check for equality to prevent adding duplicate nodes
+	    if((cnode->ip == node->ip) && ((uint8_t)cnode->netmask == (uint8_t)node->netmask) && (cnode->is_static == node->is_static)) {
+		cnode->gateway = node->gateway;
+		strcpy(cnode->output_if, node->output_if);
+		free(node);
+		node = nxt_node;
+		continue;
+	    }
+
+	    // insert new node
+	    if(cnode->next != NULL) {
+		(cnode->next)->prev = node;
+	    }
+	    node->next = cnode->next;
+	    node->prev = cnode;
+	    cnode->next = node;
+	}
+	node = nxt_node;
+    }
+
+    // release lock
+    pthread_mutex_unlock(&rtable_lock);
+}
 
 /**
  * ---------------------------------------------------------------------------
