@@ -7,6 +7,9 @@
 
 #include "routingTable.h"
 
+#define LSUINT 30
+#define LSU_TIMEOUT 3*LSUINT
+
 typedef struct nbr {
     uint32_t subnet;
     uint32_t mask;
@@ -49,6 +52,12 @@ int get_last_seq(uint32_t router_id);
  ** 0 otherwise
  */
 int rm_router(uint32_t router_id);
+/* removes all stale router entries
+ * returns:
+ ** 1 if the topology needed an update
+ ** 0 otherwise
+ */
+int purge_topo();
 /*
  * returns:
  ** 1 if the topology needed an update
@@ -64,6 +73,10 @@ int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t n
  ** 0 otherwise
  */
 int update_lsu(topo_router *adj_list); 
+/* reads topology database
+ * runs dijkstra's algorithm on the topology
+ * updates the routing table
+ */
 void update_rtable();
 
 #endif

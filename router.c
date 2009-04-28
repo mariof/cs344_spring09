@@ -400,7 +400,7 @@ void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
 	free(arprq);			
 }
 
-// runs every ~20 seconds in a separate thread to see if any arp cache entries have timed out
+// runs every ~2 seconds in a separate thread to see if any arp cache entries have timed out
 void arpCacheRefresh(void *dummy){
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
@@ -409,6 +409,16 @@ void arpCacheRefresh(void *dummy){
 			arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));
 		sleep(ARP_CACHE_REFRESH);
 	}
+}
+
+// runs every ~2 seconds in a separate thread to see if any topology node entries have timed out
+void topologyRefresh(void *dummy){
+    while(1) {
+	if(purge_topo()) {
+	    update_rtable();
+	}
+	sleep(TOPO_REFRESH);
+    }
 }
 
 // given destination IP, returns next hop ip

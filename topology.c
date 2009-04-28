@@ -41,6 +41,7 @@ int add_router(uint32_t router_id, uint16_t last_seq)
     if(rtr->router_id == router_id) {
 	// router exists
 	// XXX: should the sequence number be updated?
+	rtr->last_seq = last_seq;
 	return 0;
     }
     else {
@@ -128,6 +129,57 @@ int rm_router(uint32_t router_id)
     //release lock
     pthread_mutex_unlock(&topo_lock);
     return 0;
+}
+
+int purge_topo()
+{
+    //acquire lock
+    pthread_mutex_lock(&topo_lock);
+    
+    int ret = 0;
+    topo_router *rtr = topo_head;
+
+    while(rtr != NULL) {
+	if(difftime(time(NULL), rtr->last_update_time) > LSU_TIMEOUT) {
+	    topo_router *nxt_rtr = rtr->next;
+
+	    // unlink the adj list from the topo db
+	    if(rtr->prev != NULL) {
+		rtr->prev->next = rtr->next;
+	    }
+	    else {
+		topo_head = rtr->next;
+	    }
+	    if(rtr->next != NULL) {
+		rtr->next->prev = rtr->prev;
+	    }
+
+	    // free the adj list
+	    // free the ads first
+	    lsu_ad *old_ad, *prev_ad;
+	    old_ad = rtr->ads;
+	    if(old_ad != NULL) {
+		while(old_ad->next != NULL) {
+		    old_ad = old_ad->next;
+		}
+		while(old_ad->prev != NULL) {
+		    prev_ad = old_ad->prev;
+		    free(old_ad);
+		    old_ad = prev_ad;
+		}
+	    }
+
+	    // free rtr
+	    free(rtr);
+	    ret = 1;
+	    rtr = nxt_rtr;
+	}
+	rtr = rtr->next;
+    }
+
+    //release lock
+    pthread_mutex_unlock(&topo_lock);
+    return ret;
 }
 
 int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t nbr_router_id)
