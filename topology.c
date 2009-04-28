@@ -33,6 +33,7 @@ int update_lsu(topo_router *adj_list)
     topo_router *rtr = topo_head;
     if(rtr == NULL) {
 	rtr = adj_list;
+	num_routers++;
 	return 1;
     }
 
@@ -40,6 +41,7 @@ int update_lsu(topo_router *adj_list)
 	adj_list->next = rtr;
 	rtr->prev = adj_list;
 	rtr = adj_list;
+	num_routers++;
 	return 1;
     }
 
@@ -106,11 +108,16 @@ int update_lsu(topo_router *adj_list)
 	adj_list->next = rtr->next;
 	adj_list->prev = rtr;
 	rtr->next = adj_list;
+	num_routers++;
 	ret = 1;
     }
     return ret;
 }
 
-void run_dijkstra()
+void update_rtable()
 {
+    int n = num_routers;
+    //malloc matrix
+    //[i][j] = [i*n+j]
+    int *adj_mat = malloc(sizeof(int)*n*n);
 }

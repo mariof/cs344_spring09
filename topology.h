@@ -45,6 +45,6 @@ int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t n
  ** 0 otherwise
  */
 int update_lsu(topo_router *adj_list); 
-void run_dijkstra();
+void update_rtable();
 
 #endif

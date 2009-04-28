@@ -37,7 +37,7 @@ uint32_t gw_match(rtableNode **head, uint32_t ip);
 /* Replace all the dynamic routing table entries
  * with those from the shadow table
  */
-void update_rtable(rtableNode **head, rtableNode *shadow_table);
+//void update_rtable(rtableNode **head, rtableNode *shadow_table);
 
 /**
  * ---------------------------------------------------------------------------
