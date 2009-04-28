@@ -186,6 +186,8 @@ uint32_t gw_match(rtableNode **head, uint32_t ip)
     //release lock
     pthread_mutex_unlock(&rtable_lock);
 
+	if(gw == 0) gw = ip;
+
     //return gateway
     return gw;
 }
