@@ -8,6 +8,7 @@
 #include "routingTable.h"
 #include "threadPool.h"
 #include "pwospf.h"
+#include "topology.h"
 
 #define ETHERNET_HEADER_LENGTH 14
 #define ARP_HEADER_LENGTH 8
@@ -18,6 +19,7 @@
 #define ARP_CACHE_REFRESH 2
 #define ARP_QUEUE_REFRESH 2
 #define PING_LIST_REFRESH 2
+#define TOPO_REFRESH 2
 
 struct sr_router{
 	struct arpQueueNode* arpQueue;
@@ -52,6 +54,7 @@ uint32_t getNextHopIP(uint32_t ip);
 void printARPCache();
 
 void arpCacheRefresh(void *dummy);
+void topologyRefresh(void *dummy);
 
 void testList(struct sr_instance* sr);
 
