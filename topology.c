@@ -496,6 +496,13 @@ void update_rtable()
 	//add all subnets advertised by it to the routing table
     }
 
+    // release all allocated memory
+    free(adj_mat);
+    free(rtr_vec);
+    free(dist_vec);
+    free(parent_vec);
+    free(tight_vec);
+
     //release lock
     pthread_mutex_unlock(&topo_lock);
 }
