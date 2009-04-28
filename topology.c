@@ -156,6 +156,9 @@ void update_rtable()
     int *parent_vec = malloc(sizeof(int)*n);
     int *tight_vec = malloc(sizeof(int)*n);
 
+    //acquire lock
+    pthread_mutex_lock(&topo_lock);
+
     // fill rtr_vec, dist_vec, parent_vec, tight_vec
     int i, j;
     topo_router *cur_rtr = topo_head;
@@ -255,4 +258,6 @@ void update_rtable()
     
     // For each router, reconstruct path
 
+    //release lock
+    pthread_mutex_unlock(&topo_lock);
 }
