@@ -546,6 +546,16 @@ void update_rtable()
 	if(i == s) {
 	    // I'm da ROUTER!
 	    // add all my subnets to the routing table
+	    struct pwospf_if *pif = subsystem->pwospf.if_list;
+	    while(pif != NULL) {
+		char if_name[SR_NAMELEN];
+		pthread_rwlock_rdlock(&(subsystem->if_lock));
+		strcpy(if_name, getIfName(pif->ip));
+		pthread_rwlock_unlock(&(subsystem->if_lock));
+		//insert_shadow_node
+		insert_shadow_node(&shadow, pif->ip, pif->netmask, 0, if_name, 0);
+		pif = pif->next;
+	    }
 	    continue;
 	}
 
