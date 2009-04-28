@@ -546,11 +546,6 @@ void update_rtable()
 	if(i == s) {
 	    // I'm da ROUTER!
 	    // add all my subnets to the routing table
-	    lsu_ad *nbr = rtr_vec[i]->ads;
-	    while(nbr != NULL) {
-		//get if,gw info from pwospf
-		//insert_shadow_node
-	    }
 	    continue;
 	}
 
@@ -563,7 +558,11 @@ void update_rtable()
 	lsu_ad *nbr = rtr_vec[i]->ads;
 	while(nbr != NULL) {
 	    //get if,gw info from pwospf
+	    char if_name[SR_NAMELEN];
+	    uint32_t gw;
+	    findNeighbor(rtr_vec[i]->router_id, if_name, &gw);
 	    //insert_shadow_node
+	    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, gw, if_name, 0);
 	}
     }
     rebuild_rtable(&(subsystem->rtable), shadow);
