@@ -25,17 +25,20 @@ void processPacket(struct sr_instance* sr,
     int i;
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int iface_disabled = 0;
+    
+	pthread_rwlock_rdlock(&subsystem->if_lock);	
     for(i = 0; i < subsystem->num_ifaces; i++) {
-	if(!strcmp(subsystem->ifaces[i].name, interface)) {
-	    if(!(subsystem->ifaces[i].enabled)) {
-		iface_disabled = 1;
-	    }
-	    break;
-	}
+		if(!strcmp(subsystem->ifaces[i].name, interface)) {
+		    if(!(subsystem->ifaces[i].enabled)) {
+			iface_disabled = 1;
+		    }
+		    break;
+		}
     }
+    pthread_rwlock_unlock(&subsystem->if_lock);
 
     if(iface_disabled) {
-	return;
+		return;
     }
         
     if (len < ETHERNET_HEADER_LENGTH){
@@ -123,10 +126,12 @@ void processPacket(struct sr_instance* sr,
 
 	// find the interface with target IP
 	uint32_t myIP = 0;
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		myIP = subsystem->ifaces[i].ip; // host byte order
 		if(myIP == dstIP) break;
 	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
 
 	if(myIP == dstIP){
 	    dbgMsg("Received packet destined for the router");
@@ -249,14 +254,17 @@ uint8_t* getMAC(struct sr_instance* sr, uint32_t ip, const char* name){
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
 	// find the interface by name, and then check IP
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (strcmp(name, subsystem->ifaces[i].name))
 			continue;
 			
 		if (ip == subsystem->ifaces[i].ip){ // both should be in host byte order
+			pthread_rwlock_unlock(&subsystem->if_lock);
 			return subsystem->ifaces[i].addr;
 		}	
 	}	
+	pthread_rwlock_unlock(&subsystem->if_lock);
 	return NULL;
 }
 
@@ -311,12 +319,14 @@ uint32_t getInterfaceIP(const char* interface){
 	uint32_t retVal = 0;
 	
 	// find the interface by name
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (!strcmp(interface, subsystem->ifaces[i].name)){
 			retVal = subsystem->ifaces[i].ip;
 			break;
 		}
 	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
 	return retVal;
 }
 
@@ -328,12 +338,14 @@ int isMyIP(uint32_t ip){
 	uint32_t retVal = 0;
 	
 	// loop interfaces
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (subsystem->ifaces[i].ip == ip){
 			retVal = 1;
 			break;
 		}
 	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
 	return retVal;
 }
 
@@ -344,11 +356,14 @@ char* getIfName(uint32_t ip){
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	
 	// loop interfaces
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (subsystem->ifaces[i].enabled && subsystem->ifaces[i].ip == ip){
+			pthread_rwlock_unlock(&subsystem->if_lock);
 			return subsystem->ifaces[i].name;
 		}
 	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
 	return NULL;
 }
 
@@ -360,12 +375,14 @@ int isEnabled(uint32_t ip){
 	uint32_t retVal = 0;
 	
 	// loop interfaces
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (subsystem->ifaces[i].ip == ip){
 			retVal = subsystem->ifaces[i].enabled;
 			break;
 		}
 	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
 	return retVal;
 }
 
@@ -376,17 +393,22 @@ uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint3
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
 	// find the interface by name
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (!strcmp(interface, subsystem->ifaces[i].name))
 			break;
 	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
+	
 	if (i >= subsystem->num_ifaces){
 		errorMsg("Given interfaces does not exist");
 		return NULL;
 	}	
 	
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	uint8_t *myMAC = subsystem->ifaces[i].addr;
 	uint32_t myIP = subsystem->ifaces[i].ip; // host byte order
+	pthread_rwlock_unlock(&subsystem->if_lock);
 
 	// generate Ethernet Header
 	for (i = 0, j = 6; i < 6; i++, j++) p[i] = 255;
@@ -458,19 +480,26 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
 	// find the interface by name
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if (!strcmp(interface, subsystem->ifaces[i].name))
 			break;
 	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
+	
 	if (i >= subsystem->num_ifaces){
 		errorMsg("Given interfaces does not exist");
 		return;
 	}
+	
+	pthread_rwlock_rdlock(&subsystem->if_lock);
 	if (subsystem->ifaces[i].enabled == 0){
 		//errorMsg("Given interfaces is disabled");
+		pthread_rwlock_unlock(&subsystem->if_lock);
 		return;		
-	}		
+	}			
 	uint8_t *myMAC = subsystem->ifaces[i].addr;
+	pthread_rwlock_unlock(&subsystem->if_lock);
 
 	// fill Ethernet Header
 	for (i = 0; i < 6; i++) packet[i] = 0;
@@ -651,17 +680,22 @@ void fill_rtable(rtableNode **head)
 int router_interface_set_enabled( struct sr_instance* sr, const char* name, int enabled ) {
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
+    pthread_rwlock_wrlock(&subsystem->if_lock);
     for(i = 0; i < subsystem->num_ifaces; i++) {
-	if(!strcmp(subsystem->ifaces[i].name, name)) {
-	    if(subsystem->ifaces[i].enabled == enabled)
-		return 1;
-	    else {
-		subsystem->ifaces[i].enabled = enabled;
-		sendLSU();
-		return 0;
-	    }
-	}
+		if(!strcmp(subsystem->ifaces[i].name, name)) {
+		    if(subsystem->ifaces[i].enabled == enabled){
+				pthread_rwlock_unlock(&subsystem->if_lock);
+				return 1;
+			}
+		    else {
+				subsystem->ifaces[i].enabled = enabled;
+				sendLSU();
+				pthread_rwlock_unlock(&subsystem->if_lock);
+				return 0;
+		    }
+		}
     }
+	pthread_rwlock_unlock(&subsystem->if_lock);
     return -1;
 }
 
@@ -676,12 +710,14 @@ struct sr_vns_if* router_lookup_interface_via_ip( struct sr_instance* sr,
     struct sr_vns_if *interface = NULL;
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
+    pthread_rwlock_rdlock(&subsystem->if_lock);
     for(i = 0; i < subsystem->num_ifaces; i++) {
-	if(subsystem->ifaces[i].ip == ip) {
-	    interface = &(subsystem->ifaces[i]);
-	    break;
-	}
+		if(subsystem->ifaces[i].ip == ip) {
+		    interface = &(subsystem->ifaces[i]);
+		    break;
+		}
     }
+    pthread_rwlock_unlock(&subsystem->if_lock);
     return interface;
 }
 
@@ -696,12 +732,14 @@ struct sr_vns_if* router_lookup_interface_via_name( struct sr_instance* sr,
     struct sr_vns_if *interface = NULL;
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
+    pthread_rwlock_rdlock(&subsystem->if_lock);
     for(i = 0; i < subsystem->num_ifaces; i++) {
-	if(!strcmp(subsystem->ifaces[i].name, name)) {
-	    interface = &(subsystem->ifaces[i]);
-	    break;
-	}
+		if(!strcmp(subsystem->ifaces[i].name, name)) {
+		    interface = &(subsystem->ifaces[i]);
+		    break;
+		}
     }
+    pthread_rwlock_unlock(&subsystem->if_lock);
     return interface;
 }
 

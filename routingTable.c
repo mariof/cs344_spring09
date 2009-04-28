@@ -141,14 +141,16 @@ char *lp_match(rtableNode **head, uint32_t ip)
 	    output_if = (char*)malloc((sizeof(char)) * SR_NAMELEN);
 	    int i;
 	    int iface_disabled = 0;
+	    pthread_rwlock_rdlock(&subsystem->if_lock);
 	    for(i = 0; i < subsystem->num_ifaces; i++) {
-		if(!strcmp(subsystem->ifaces[i].name, output_if)) {
-		    if(!(subsystem->ifaces[i].enabled)) {
-			iface_disabled = 1;
-		    }
-		    break;
-		}
+			if(!strcmp(subsystem->ifaces[i].name, output_if)) {
+			    if(!(subsystem->ifaces[i].enabled)) {
+					iface_disabled = 1;
+			    }
+			    break;
+			}
 	    }
+	    pthread_rwlock_unlock(&subsystem->if_lock);
 
 	    if(iface_disabled)
 		continue;
