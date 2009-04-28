@@ -6,6 +6,8 @@
 #define NEIGHBOR_TIMEOUT 3 // timeout time =  NEIGHBOR_TIMEOUT x HELLOINT
 #define LSUINT 30
 
+#define PWOSPF_HELLO_REFRESH 2 // check for hello timeout every PWOSPF_HELLO_REFRESH seconds
+
 #define LSU_DEFAULT_TTL 64
 
 #define AREA_ID 1
@@ -43,5 +45,7 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len);
 struct pwospf_if* findPWOSPFif(struct pwospf_router* router, uint32_t ip);
 struct pwospf_neighbor* findOSPFNeighbor(struct pwospf_if* interface, uint32_t ip);
 void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len);
+void pwospfTimeoutHelloThread(void *dummy);
+int findNeighbor(uint32_t routerID, char* if_name, uint32_t *ip);
 
 #endif // PWOSPF_H

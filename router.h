@@ -28,6 +28,7 @@ struct sr_router{
 	rtableNode *rtable;
 	int num_ifaces;
 	struct sr_vns_if* ifaces;
+	pthread_rwlock_t if_lock;
 	struct threadWorker* poolHead;
 	struct threadWorker* poolTail;
 	struct pwospf_router pwospf;
@@ -47,6 +48,7 @@ void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip);
 void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, uint8_t* packet, unsigned len);
 int isMyIP(uint32_t ip);
 int isEnabled(uint32_t ip);
+char* getIfName(uint32_t ip);
 
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);

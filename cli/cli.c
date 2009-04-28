@@ -254,6 +254,8 @@ void cli_show_ip_intf() {
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
+    
+    pthread_rwlock_rdlock(&subsystem->if_lock);
     for(i = 0; i < subsystem->num_ifaces; i++) {
 		struct sr_vns_if *node = &(subsystem->ifaces[i]);
 		uint8_t ip_str[4];
@@ -265,6 +267,8 @@ void cli_show_ip_intf() {
 			node->enabled);
 	    cli_send_str( buf );
     }
+    pthread_rwlock_unlock(&subsystem->if_lock);
+
 }
 
 void cli_show_ip_route() {
@@ -307,11 +311,61 @@ void cli_show_ospf() {
 }
 
 void cli_show_ospf_neighbors() {
-    cli_send_str( "not yet implemented: show list of neighbors for each interface of SR\n" );
+    char buf[128];
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	struct pwospf_if *pw_if = subsystem->pwospf.if_list;
+	
+    uint8_t ip[4];
+
+    while(pw_if != NULL) {
+    	char* if_name = getIfName(pw_if->ip);
+    	if(if_name){
+			sprintf(buf, "%s: neighbors:\n", if_name);
+			cli_send_str(buf);
+			
+			struct pwospf_neighbor *node = pw_if->neighbor_list;
+			while(node){
+				int2byteIP(node->ip, ip);
+				sprintf(buf, "\tRouterID:%u  IP:%d.%d.%d.%d\n", 
+					    node->id,
+					    ip[0], ip[1], ip[2], ip[3]);
+			    cli_send_str( buf );
+			
+				node = node->next;
+			}
+		}
+		pw_if = pw_if->next;
+    }
 }
 
 void cli_show_ospf_topo() {
-    cli_send_str( "not yet implemented: show PWOSPF topology of SR (e.g., for each router, show its ID, last pwospf seq #, and a list of all its links (e.g., router ID + subnet))\n" );
+    char buf[128];
+	topo_router *rnode;
+		
+    uint8_t ip[4];
+
+	pthread_mutex_lock(&topo_lock);
+	rnode = topo_head;
+	
+	while(rnode){
+		sprintf(buf, "RouterID:%u, last seq_num:%u, links:\n", rnode->router_id, rnode->last_seq);
+		cli_send_str(buf);
+		
+		lsu_ad *lnode = rnode->ads;
+		while(lnode){
+			int2byteIP(lnode->subnet, ip);
+			sprintf(buf, "\tRouterID:%u, subnet:%u.%u.%u.%u\n", lnode->router_id, ip[0], ip[1], ip[2], ip[3]);
+			cli_send_str(buf);
+			lnode = lnode->next;
+		}
+	
+		rnode = rnode->next;
+	}
+
+	pthread_mutex_unlock(&topo_lock);
+
+//    cli_send_str( "not yet implemented: show PWOSPF topology of SR (e.g., for each router, show its ID, last pwospf seq #, and a list of all its links (e.g., router ID + subnet))\n" );
 }
 
 #ifndef _VNS_MODE_
@@ -421,13 +475,23 @@ void cli_manip_ip_arp_purge_sta() {
 }
 
 void cli_manip_ip_intf_set( gross_intf_t* data ) {
-    void* intf;
+    struct sr_vns_if *intf;
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(SR);
+
     intf = router_lookup_interface_via_name( SR, data->intf_name );
     if( intf ) {
-        /* not yet implmented: set intf's IP as data->ip and subnet mask as
-           data->subnet_mask */
-
-        /* not yet implemented: let everyone else know the routes we offer have changed */
+    	pthread_rwlock_wrlock(&subsystem->if_lock);
+    		struct pwospf_if *pw_if = findPWOSPFif(&subsystem->pwospf, intf->ip);
+    		pw_if->ip = data->ip;
+    		pw_if->netmask = data->subnet_mask;
+			intf->ip = data->ip;
+			intf->mask = data->subnet_mask;
+    	pthread_rwlock_unlock(&subsystem->if_lock);
+		
+		cli_show_ip_intf();
+		
+		sendLSU();
+        cli_send_strs( 2, data->intf_name, " updated\n" );
     }
     else
         cli_send_strs( 2, data->intf_name, " is not a valid interface\n" );

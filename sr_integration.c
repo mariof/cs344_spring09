@@ -53,6 +53,8 @@ void sr_integ_init(struct sr_instance* sr)
     pthread_mutex_init(&queue_lock, NULL);
     pthread_mutex_init(&rtable_lock, NULL);
     pthread_mutex_init(&ping_lock, NULL);
+    pthread_rwlock_init(&subsystem->if_lock, NULL);
+
     
     subsystem->arpQueue = NULL;
     subsystem->arpList = NULL;
@@ -97,6 +99,7 @@ void sr_integ_hw_setup(struct sr_instance* sr)
     
     // init pwospf
     initPWOSPF(sr);
+	sys_thread_new(pwospfTimeoutHelloThread, NULL);
 
 	// start pwospf threads
 	struct pwospf_if* node = subsystem->pwospf.if_list;

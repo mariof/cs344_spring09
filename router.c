@@ -337,6 +337,21 @@ int isMyIP(uint32_t ip){
 	return retVal;
 }
 
+// returns interface name given IP. Pointer is borrowed from the original interface structure
+char* getIfName(uint32_t ip){
+	int i;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
+	// loop interfaces
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if (subsystem->ifaces[i].enabled && subsystem->ifaces[i].ip == ip){
+			return subsystem->ifaces[i].name;
+		}
+	}
+	return NULL;
+}
+
 // returns 1 if the interface with given IP is enabled
 int isEnabled(uint32_t ip){
 	int i;
