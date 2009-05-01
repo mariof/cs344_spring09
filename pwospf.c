@@ -1,5 +1,8 @@
 #include "router.h"
 
+// this is to make sendLSU() reentrant (well, not really, but at least thread safe)
+pthread_mutex_t lsu_reentrant;
+
 // Thread that sends Hello packets, one thread per interface
 void pwospfSendHelloThread(void* arg){
 	struct pwospf_if* iface = (struct pwospf_if*)arg;
@@ -326,7 +329,8 @@ void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
 
 // generate and send a LSU packet from all enabled interfaces 
 void sendLSU(){
-	static uint16_t sequence = 0;
+	pthread_mutex_lock(&lsu_reentrant);
+	static uint16_t sequence = 0; // stupid static counter make this non-reentrant
 	int i, j, k;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
@@ -448,6 +452,7 @@ void sendLSU(){
 
 	sequence++;
 	free(packet);
+	pthread_mutex_unlock(&lsu_reentrant);
 }
 
 // sending a Hello packet out the interface with ifIP
@@ -565,7 +570,10 @@ void initPWOSPF(struct sr_instance* sr){
 		
 		subsystem->pwospf.if_list = node;		
 	}
-	pthread_rwlock_unlock(&subsystem->if_lock);	
+	pthread_rwlock_unlock(&subsystem->if_lock);
+	
+	pthread_mutex_init(&lsu_reentrant, NULL);
+		
 }
 
 // Find the interface struct given the ip

@@ -175,6 +175,10 @@ void sr_integ_add_interface(struct sr_instance* sr,
     tmp_if->mask = vns_if->mask;
     tmp_if->speed = vns_if->speed;
     tmp_if->enabled = 1;
+    
+#ifdef _CPUMODE_
+    tmp_if->socket = vns_if->socket;  // Raw socket ID
+#endif /* _CPUMODE_ */
         
     //printf("ip: %u\n", vns_if->ip);
         
@@ -241,6 +245,11 @@ void sr_integ_destroy(struct sr_instance* sr)
     pthread_mutex_destroy(&queue_lock);
     pthread_mutex_destroy(&rtable_lock);
     pthread_mutex_destroy(&ping_lock);
+    
+#ifdef _CPUMODE_
+	int i;
+	for(i = 0; i < subsystem->num_ifaces; i++) close(subsystem->ifaces[i].socket);	
+#endif /* _CPUMODE_ */
     
 } /* -- sr_integ_destroy -- */
 

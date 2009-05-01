@@ -19,6 +19,23 @@
 /* temporary */
 #include "cli_stubs.h"
 
+
+#ifdef _CPUMODE_
+
+	#define STR_HW_INFO_MAX_LEN 1024
+	#define STR_ARP_CACHE_MAX_LEN 1024
+	#define STR_INTFS_HW_MAX_LEN 1024
+	#define STR_RTABLE_MAX_LEN 1024
+
+	void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len );
+	void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len );
+	void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len );
+	void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len );
+
+#endif /* _CPUMODE_ */
+
+
+
 /** whether to shutdown the server or not */
 static int router_shutdown;
 
@@ -199,7 +216,7 @@ void cli_show_hw() {
 }
 
 void cli_show_hw_about() {
-    char buf[STR_ARP_CACHE_MAX_LEN];
+    char buf[STR_HW_INFO_MAX_LEN];
     router_hw_info_to_string( SR, buf, STR_HW_INFO_MAX_LEN );
     cli_send_str( buf );
 }
@@ -737,3 +754,12 @@ void cli_opt_verbose( gross_option_t* data ) {
             cli_send_str( "Verbose mode is already disabled.\n" );
     }
 }
+
+
+#ifdef _CPUMODE_
+// TODO: implement these
+void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len ){}
+void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){}
+void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len ) {}
+void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){}
+#endif /* _CPUMODE_ */

@@ -11,6 +11,7 @@ CC  = gcc
 MODE_NETFPGA = -D_CPUMODE_
 MODE_VNS     =
 MODE = $(MODE_VNS)
+#MODE = $(MODE_NETFPGA)
 
 include Makefile.common
 DEBUG = -g

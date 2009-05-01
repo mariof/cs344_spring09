@@ -15,6 +15,8 @@
 
 #include "sr_vns.h"
 
+#include "router.h"
+
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -24,6 +26,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+
+#include <sys/ioctl.h>
+#include <linux/netdevice.h>
+#include <linux/sockios.h>
+#include <netinet/in.h>
+#include <fcntl.h>
 
 struct sr_ethernet_hdr
 {
@@ -117,6 +125,39 @@ int sr_cpu_init_hardware(struct sr_instance* sr, const char* hwfile)
         Debug(" MAC [%s]\n", buf);
         asci_to_ether(buf, vns_if.addr);
 
+
+#ifdef _CPUMODE_
+		// open raw socket
+		int s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+		if(s < 0){
+			perror("socket failed");
+		}
+		struct ifreq ifr;
+		bzero(&ifr, sizeof(struct ifreq));
+		strncpy(ifr.ifr_ifrn.ifrn_name, vns_if.name, IFNAMSIZ);
+		if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) {
+		        perror("ioctl SIOCGIFINDEX");
+		        exit(1);
+		}
+
+		struct sockaddr_ll saddr;
+		bzero(&saddr, sizeof(struct sockaddr_ll));
+		saddr.sll_family = AF_PACKET;
+		saddr.sll_protocol = htons(ETH_P_ALL);
+		saddr.sll_ifindex = ifr.ifr_ifru.ifru_ivalue;
+
+		if (bind(s, (struct sockaddr*)(&saddr), sizeof(saddr)) < 0) {
+	        perror("bind error");
+		    exit(1);
+		}
+		int flags;		if((flags = fcntl(s, F_GETFL, 0)) < 0){		    perror("F_GETFL error");
+			exit(1);
+		}		flags |= O_NONBLOCK;		if(fcntl(s, F_SETFL, flags) < 0){		    perror("F_ SETFL error");
+		    exit(1);
+		}
+		vns_if.socket = s; // save socket ID
+#endif /* _CPUMODE_ */
+        
         sr_integ_add_interface(sr, &vns_if);
 
     } /* -- while ( fgets ( .. ) ) -- */
@@ -135,26 +176,43 @@ int sr_cpu_init_hardware(struct sr_instance* sr, const char* hwfile)
 
 int sr_cpu_input(struct sr_instance* sr)
 {
+	int i;
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	unsigned const int len = 8192;
+	int rec_len;
+	uint8_t buf[len];
+
+	
     /* REQUIRES */
     assert(sr);
 
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    fprintf(stderr, "!!!  sr_cpu_input(..) (sr_cpu_extension_nf2.c) called while running in cpu mode     !!!\n");
-    fprintf(stderr, "!!!  you need to implement this function to read from the hardware                  !!!\n");
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+//    fprintf(stderr, "!!!  sr_cpu_input(..) (sr_cpu_extension_nf2.c) called while running in cpu mode     !!!\n");
+//    fprintf(stderr, "!!!  you need to implement this function to read from the hardware                  !!!\n");
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
-    assert(0);
+#ifdef _CPUMODE_
 
-    /*
-     * TODO: Read packet from the hardware and pass to sr_integ_input(..)
-     *       e.g.
-     *
-     *  sr_integ_input(sr,
-     *          packet,   * lent *
-     *          len,
-     *          "eth2" ); * lent *
-     */
+	// this would be better off in multiple threads, but this function is a bad place to do that
+	i = 0;
+	while(1){
+		// A read lock (subsystem->if_lock) should be held here, but in the interest of speed it is not.
+		// This is OK, as long as we don't ever modify ifaces array or socket value (which we don't)
+		rec_len = recvfrom(subsystem->ifaces[i].socket, buf, len, 0, NULL, 0);
+		if ( rec_len > 0 ) break;		
+					
+		i++;
+		i %= subsystem->num_ifaces;
+		usleep(10);
+	}
 
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+    sr_integ_input(sr,
+            buf,   							/* lent */
+            rec_len,
+            subsystem->ifaces[i].name ); 	/* lent */
+    pthread_rwlock_unlock(&subsystem->if_lock);
+     
     /*
      * Note: To log incoming packets, use sr_log_packet from sr_dumper.[c,h]
      */
@@ -163,6 +221,15 @@ int sr_cpu_input(struct sr_instance* sr)
      * Note: With a 0 result, the router will shut-down
      */
     return 1;
+
+#else 
+
+	fprintf(stderr, "router in VNS mode!");
+	return 0;
+
+#endif /* _CPUMODE_ */
+
+
 
 } /* -- sr_cpu_input -- */
 
@@ -177,17 +244,34 @@ int sr_cpu_output(struct sr_instance* sr /* borrowed */,
                        unsigned int len,
                        const char* iface /* borrowed */)
 {
+	int i, retVal;
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
     /* REQUIRES */
     assert(sr);
     assert(buf);
     assert(iface);
 
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    fprintf(stderr, "!!! sr_cpu_output(..) (sr_cpu_extension_nf2.c) called while running in cpu mode !!!\n");
-    fprintf(stderr, "!!! you need to implement this function to write to the hardware                !!!\n");
-    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+//    fprintf(stderr, "!!! sr_cpu_output(..) (sr_cpu_extension_nf2.c) called while running in cpu mode !!!\n");
+//    fprintf(stderr, "!!! you need to implement this function to write to the hardware                !!!\n");
+//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
-    assert(0);
+
+#ifdef _CPUMODE_
+	
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if(!strcmp(iface, subsystem->ifaces[i].name)){
+			retVal = sendto(subsystem->ifaces[i].socket, buf, len, 0, NULL, 0);			
+			pthread_rwlock_unlock(&subsystem->if_lock);
+			return retVal;
+		}
+	}
+
+	pthread_rwlock_unlock(&subsystem->if_lock);
+
+#endif /* _CPUMODE_ */
 
     /* Return the length of the packet on success, -1 on failure */
     return -1;
