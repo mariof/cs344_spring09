@@ -16,6 +16,7 @@ int add_router(uint32_t router_id, uint16_t last_seq)
 	new_rtr->next = new_rtr->prev = NULL;
 	rtr = new_rtr;
 	num_routers++;
+    pthread_mutex_unlock(&topo_lock);
 	return 1;
     }
 
@@ -28,6 +29,7 @@ int add_router(uint32_t router_id, uint16_t last_seq)
 	rtr->prev = new_rtr;
 	rtr = new_rtr;
 	num_routers++;
+    pthread_mutex_unlock(&topo_lock);
 	return 1;
     }
 
@@ -42,6 +44,7 @@ int add_router(uint32_t router_id, uint16_t last_seq)
 	// router exists
 	// XXX: should the sequence number be updated?
 	rtr->last_seq = last_seq;
+    pthread_mutex_unlock(&topo_lock);
 	return 0;
     }
     else {
@@ -57,6 +60,7 @@ int add_router(uint32_t router_id, uint16_t last_seq)
 	new_rtr->prev = rtr;
 	rtr->next = new_rtr;
 	num_routers++;
+    pthread_mutex_unlock(&topo_lock);
 	return 1;
     }
 
@@ -72,11 +76,14 @@ int get_last_seq(uint32_t router_id)
 
     topo_router *rtr = topo_head;
     if(rtr == NULL) {
-	return -1;
+    pthread_mutex_unlock(&topo_lock);
+   	return -1;
     }
     while(rtr != NULL) {
-	if(rtr->router_id == router_id)
+	if(rtr->router_id == router_id){
+	    pthread_mutex_unlock(&topo_lock);
 	    return rtr->last_seq;
+	}
 	rtr = rtr->next;
     }
 
@@ -121,6 +128,7 @@ int rm_router(uint32_t router_id)
 	    }
 	    // free rtr
 	    free(rtr);
+        pthread_mutex_unlock(&topo_lock);
 	    return 1;
 	}
 	rtr = rtr->next;
@@ -201,6 +209,7 @@ int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t n
 		new_ad->mask = mask;
 		new_ad->next = new_ad->prev = NULL;
 		curr_ad = new_ad;
+ 	    pthread_mutex_unlock(&topo_lock);
 		return 1;
 	    }
 	    if(curr_ad->router_id > nbr_router_id) {
@@ -223,10 +232,12 @@ int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t n
 	    if(curr_ad->router_id == nbr_router_id) {
 		// router ad exists
 		if(curr_ad->subnet == subnet && curr_ad->mask == mask) {
+		    pthread_mutex_unlock(&topo_lock);
 		    return 0;
 		}
 		curr_ad->subnet = subnet;
 		curr_ad->mask = mask;
+	    pthread_mutex_unlock(&topo_lock);
 		return 1;
 	    }
 	    else {
@@ -241,6 +252,7 @@ int add_router_ad(uint32_t router_id, uint32_t subnet, uint32_t mask, uint32_t n
 		new_ad->next = curr_ad->next;
 		curr_ad->next = new_ad;
 		new_ad->prev = curr_ad;
+	    pthread_mutex_unlock(&topo_lock);
 		return 1;
 	    }
 	}
@@ -255,7 +267,7 @@ int update_lsu(topo_router *adj_list)
     int ret = 0;
     topo_router *rtr = topo_head;
     if(rtr == NULL) {
-	rtr = adj_list;
+	topo_head = adj_list;
 	num_routers++;
 	return 1;
     }
@@ -263,7 +275,7 @@ int update_lsu(topo_router *adj_list)
     if(rtr->router_id > adj_list->router_id) {
 	adj_list->next = rtr;
 	rtr->prev = adj_list;
-	rtr = adj_list;
+	topo_head = adj_list;
 	num_routers++;
 	return 1;
     }

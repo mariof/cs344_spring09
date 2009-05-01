@@ -200,7 +200,7 @@ void processPacket(struct sr_instance* sr,
     	    	
     	// handle ARP requests and responses    	
     	if (arpPacket[6] == 0 && arpPacket[7] == 1){
-    		dbgMsg("ARP request received");
+  //  		dbgMsg("ARP request received");
 			size_t ipLen = arpPacket[5];
 			size_t macLen = arpPacket[4];
     		const uint8_t* arpPacketData = &arpPacket[ARP_HEADER_LENGTH];
@@ -452,7 +452,9 @@ void arpCacheRefresh(void *dummy){
 void topologyRefresh(void *dummy){
     while(1) {
 	if(purge_topo()) {
+		printf("before\n");
 	    update_rtable();
+		printf("after\n");
 	}
 	sleep(TOPO_REFRESH);
     }

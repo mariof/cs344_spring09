@@ -1,3 +1,6 @@
+#ifndef ROUTER_H
+#define ROUTER_H
+
 #include <stdlib.h>
 #include "sr_vns.h"
 #include "sr_base_internal.h"
@@ -74,3 +77,6 @@ int router_interface_set_enabled( struct sr_instance* sr, const char* name, int 
 struct sr_vns_if* router_lookup_interface_via_ip( struct sr_instance* sr, uint32_t ip );
 struct sr_vns_if* router_lookup_interface_via_name( struct sr_instance* sr, const char* name );
 int router_is_interface_enabled( struct sr_instance* sr, void* intf );
+
+
+#endif // ROUTER_H

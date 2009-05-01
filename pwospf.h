@@ -2,9 +2,9 @@
 #define PWOSPF_H
 
 #define ALLSPFRouters 0xe0000005 // 224.0.0.5 in nbo
-#define HELLOINT 10
+#define HELLOINT 2
 #define NEIGHBOR_TIMEOUT 3 // timeout time =  NEIGHBOR_TIMEOUT x HELLOINT
-#define LSUINT 30
+//#define LSUINT 5
 
 #define PWOSPF_HELLO_REFRESH 2 // check for hello timeout every PWOSPF_HELLO_REFRESH seconds
 
