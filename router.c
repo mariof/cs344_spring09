@@ -358,7 +358,7 @@ char* getIfName(uint32_t ip){
 	// loop interfaces
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
-		if (subsystem->ifaces[i].enabled && subsystem->ifaces[i].ip == ip){
+		if (subsystem->ifaces[i].ip == ip){
 			pthread_rwlock_unlock(&subsystem->if_lock);
 			return subsystem->ifaces[i].name;
 		}
@@ -372,7 +372,7 @@ int isEnabled(uint32_t ip){
 	int i;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-	uint32_t retVal = 0;
+	int retVal = 0;
 	
 	// loop interfaces
 	pthread_rwlock_rdlock(&subsystem->if_lock);
@@ -682,16 +682,7 @@ void fill_rtable(rtableNode **head)
 int router_interface_set_enabled( struct sr_instance* sr, const char* name, int enabled ) {
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
-    printf("before!\n");
-	printf("stat: %d\n", *((int*)(&subsystem->if_lock)) );
-	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+1) );
-	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+2) );
-	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+3) );
-	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+4) );
-	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+5) );
-
 	pthread_rwlock_wrlock(&subsystem->if_lock);
-    printf("after!\n");
     for(i = 0; i < subsystem->num_ifaces; i++) {
 		if(!strcmp(subsystem->ifaces[i].name, name)) {
 		    if(subsystem->ifaces[i].enabled == enabled){

@@ -340,7 +340,10 @@ void cli_show_ospf_neighbors() {
     while(pw_if != NULL) {
     	char* if_name = getIfName(pw_if->ip);
     	if(if_name){
-			sprintf(buf, "%s: neighbors:\n", if_name);
+    		char tmp_en[] = " (disabled)\0";
+    		if(isEnabled(pw_if->ip)) tmp_en[0] = 0;
+    		
+			sprintf(buf, "%s:%s neighbors:\n", if_name, tmp_en);
 			cli_send_str(buf);
 			
 			struct pwospf_neighbor *node = pw_if->neighbor_list;
@@ -531,7 +534,7 @@ void cli_manip_ip_intf_set_enabled( const char* intf_name, int enabled ) {
 
     case 1:
         cli_send_strs( 3, intf_name, " was already ", what );
-
+        break;
     case -1:
     default:
         cli_send_strs( 2, intf_name, " is not a valid interface\n" );
