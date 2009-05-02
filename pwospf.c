@@ -330,7 +330,7 @@ void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
 // generate and send a LSU packet from all enabled interfaces 
 void sendLSU(){
 	pthread_mutex_lock(&lsu_reentrant);
-	static uint16_t sequence = 0; // stupid static counter make this non-reentrant
+	static uint16_t sequence = 0; // stupid static counter makes this function non-reentrant
 	int i, j, k;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);

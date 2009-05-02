@@ -8,7 +8,7 @@
 #include "routingTable.h"
 
 #define LSUINT 5
-#define LSU_TIMEOUT 3*LSUINT
+#define LSU_TIMEOUT 300*LSUINT
 
 typedef struct nbr {
     uint32_t subnet;

@@ -682,7 +682,16 @@ void fill_rtable(rtableNode **head)
 int router_interface_set_enabled( struct sr_instance* sr, const char* name, int enabled ) {
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int i;
-    pthread_rwlock_wrlock(&subsystem->if_lock);
+    printf("before!\n");
+	printf("stat: %d\n", *((int*)(&subsystem->if_lock)) );
+	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+1) );
+	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+2) );
+	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+3) );
+	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+4) );
+	printf("stat: %d\n", *((int*)(&subsystem->if_lock)+5) );
+
+	pthread_rwlock_wrlock(&subsystem->if_lock);
+    printf("after!\n");
     for(i = 0; i < subsystem->num_ifaces; i++) {
 		if(!strcmp(subsystem->ifaces[i].name, name)) {
 		    if(subsystem->ifaces[i].enabled == enabled){

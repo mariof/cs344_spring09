@@ -85,7 +85,6 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 	sys_thread_new(arpCacheRefresh, NULL);
 	sys_thread_new(arpQueueRefresh, NULL);
 	sys_thread_new(refreshPingList, NULL);
-	sys_thread_new(topologyRefresh, NULL);
 	    
 //    if( pthread_create(&arpCacheRefreshThread, NULL, arpCacheRefresh, NULL) == 0 )
 //    	pthread_detach(arpCacheRefreshThread);
@@ -108,6 +107,8 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 		node = node->next;
 	}
 	sys_thread_new(pwospfSendLSUThread, NULL);
+
+	sys_thread_new(topologyRefresh, NULL);
 
 	// Load thread pool system
 	initThreadPool();
