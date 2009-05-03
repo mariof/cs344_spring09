@@ -20,7 +20,7 @@
 #include "nf2.h"
 #include "reg_defines_cs344_starter.h"
 
-struct nf2device netFPGA;
+extern struct nf2device netFPGA;
 
 pthread_mutex_t ifRegLock;
 pthread_mutex_t filtRegLock;

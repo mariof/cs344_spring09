@@ -4,6 +4,9 @@
 #include <string.h>
 #include "router.h"
 
+#ifdef _CPUMODE_
+struct nf2device netFPGA;
+#endif // _CPUMODE_
 
 inline void errorMsg(char* msg){
 	fputs("error: ", stderr); fputs(msg, stderr); fputs("\n", stderr);
@@ -660,6 +663,9 @@ void fill_rtable(rtableNode **head)
     int i;
     FILE *rtable_file = fopen("rtable", "r");
 
+	// initialize
+	*head = NULL;
+	
     while (!feof(rtable_file)) {
 	if (fscanf(rtable_file, "%d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s", 
 		    &ip[0], &ip[1], &ip[2], &ip[3],
@@ -687,6 +693,11 @@ void fill_rtable(rtableNode **head)
 
     fclose(rtable_file);
 
+#ifdef _CPUMODE_
+	pthread_mutex_lock(&rtable_lock);
+		writeRoutingTable();
+	pthread_mutex_unlock(&rtable_lock);
+#endif // _CPUMODE_
 }
 
 
@@ -897,10 +908,15 @@ void writeRoutingTable(){
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, htonl(rtable->netmask) );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, htonl(rtable->gateway) );
 			
-			ifs |= 0x40 * ( strcmp(getIfNameFromMAC(mac[3]), rtable->output_if) == 0 );
-			ifs |= 0x10 * ( strcmp(getIfNameFromMAC(mac[2]), rtable->output_if) == 0 );
-			ifs |= 0x04 * ( strcmp(getIfNameFromMAC(mac[1]), rtable->output_if) == 0 );
-			ifs |= 0x01 * ( strcmp(getIfNameFromMAC(mac[0]), rtable->output_if) == 0 );
+			char *name;
+			name = getIfNameFromMAC(&mac[3][0]);
+			if(name) ifs |= 0x40 * ( strcmp(name, rtable->output_if) == 0 );
+			name = getIfNameFromMAC(&mac[2][0]);
+			if(name) ifs |= 0x10 * ( strcmp(name, rtable->output_if) == 0 );
+			name = getIfNameFromMAC(&mac[1][0]);
+			if(name) ifs |= 0x04 * ( strcmp(name, rtable->output_if) == 0 );
+			name = getIfNameFromMAC(&mac[0][0]);
+			if(name) ifs |= 0x01 * ( strcmp(name, rtable->output_if) == 0 );
 			
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, ifs );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR, index++ );		

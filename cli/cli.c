@@ -933,7 +933,7 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, &ifs);	
 		writeReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_RD_ADDR, i);
 		
-		int2byteIP(ntohl(subnet), strSubnet);
+		int2byteIP(ntohl(subnet & mask), strSubnet);
 		int2byteIP(ntohl(mask), strMask);
 		int2byteIP(ntohl(gw), strGw);
 		

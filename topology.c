@@ -444,6 +444,10 @@ static void insert_shadow_node(rtableNode **head, uint32_t ip, uint32_t netmask,
 void update_rtable()
 {
     int n = num_routers;
+
+	// if there is no topology, no point in doing anything
+	if(topo_head == NULL || n == 0) return;
+
     //malloc matrix
     //[i][j] = [i*n+j]
     int *adj_mat = malloc(sizeof(int)*n*n);

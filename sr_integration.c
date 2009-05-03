@@ -101,35 +101,8 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 {
     printf(" ** sr_integ_hw(..) called \n");
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-    
-    // start refresh threads
-	sys_thread_new(arpCacheRefresh, NULL);
-	sys_thread_new(arpQueueRefresh, NULL);
-	sys_thread_new(refreshPingList, NULL);
-	    
-	// clear arp tree (this is mainly for hw's benefit)
-	arpReplaceTree(&subsystem->arpTree, NULL);
 
-    // Load routing table
-    fill_rtable(&(subsystem->rtable));
-    
-    // init pwospf
-    initPWOSPF(sr);
-	sys_thread_new(pwospfTimeoutHelloThread, NULL);
-
-	// start pwospf threads
-	struct pwospf_if* node = subsystem->pwospf.if_list;
-	while(node){
-		sys_thread_new(pwospfSendHelloThread, (void*)node);
-		node = node->next;
-	}
-	sys_thread_new(pwospfSendLSUThread, NULL);
-
-	sys_thread_new(topologyRefresh, NULL);
-
-	// Load thread pool system
-	initThreadPool();
-	
+// set mac adresses
 #ifdef _CPUMODE_
 	int i;
 	pthread_mutex_lock(&ifRegLock);
@@ -165,8 +138,38 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 	pthread_mutex_unlock(&ifRegLock);
 	
 	writeIPfilter();
-	
+			
 #endif // _CPUMODE_
+
+    
+    // start refresh threads
+	sys_thread_new(arpCacheRefresh, NULL);
+	sys_thread_new(arpQueueRefresh, NULL);
+	sys_thread_new(refreshPingList, NULL);
+	    
+	// clear arp tree (this is mainly for hw's benefit)
+	arpReplaceTree(&subsystem->arpTree, NULL);
+
+    // Load routing table
+    fill_rtable(&(subsystem->rtable));
+    
+    // init pwospf
+    initPWOSPF(sr);
+	sys_thread_new(pwospfTimeoutHelloThread, NULL);
+
+	// start pwospf threads
+	struct pwospf_if* node = subsystem->pwospf.if_list;
+	while(node){
+		sys_thread_new(pwospfSendHelloThread, (void*)node);
+		node = node->next;
+	}
+	sys_thread_new(pwospfSendLSUThread, NULL);
+
+	sys_thread_new(topologyRefresh, NULL);
+
+	// Load thread pool system
+	initThreadPool();
+	
 
     //testList(sr);
     

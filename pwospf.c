@@ -316,8 +316,8 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 		}
 		
 		
-		// this function will not do the update unless it's neccessary		
-		update_lsu(head);	
+		// update_lsu returns 1 if routing table recalculation is neccessary		
+		if( update_lsu(head) ) update_rtable();
 		
 		// forward the packet on all interfaces (except the incoming one)		
 		forwardLSUpacket(interface, packet, len);
