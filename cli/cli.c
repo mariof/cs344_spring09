@@ -515,6 +515,9 @@ void cli_manip_ip_intf_set( gross_intf_t* data ) {
 		
 		updateNeighbors();
 		sendLSU();
+		#ifdef _CPUMODE_
+		writeIPfilter();				
+		#endif // _CPUMODE_
         cli_send_strs( 2, data->intf_name, " updated\n" );
     }
     else
@@ -762,8 +765,43 @@ void cli_opt_verbose( gross_option_t* data ) {
 
 #ifdef _CPUMODE_
 // TODO: implement these
-void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len ){}
-void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){}
-void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len ) {}
-void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){}
+void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len ){
+	// clear buffer
+	buf[0] = '\0';
+}
+void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
+	// clear buffer
+	buf[0] = '\0';
+}
+void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len ) {
+	char tmp[128];
+	unsigned val;
+	int i;
+	int strLen = 0;
+	
+	// clear buffer
+	buf[0] = '\0';
+	
+	strLen += sprintf(tmp, "IP filter:\n");
+	if(strLen <= len) strcat(buf, tmp); 
+
+	pthread_mutex_lock(&filtRegLock);
+	for(i = 0; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH; i++){	
+		readReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, &val);	
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_RD_ADDR, i);
+		
+		if(val != 0){
+			uint8_t ip[4];
+			int2byteIP(val, ip);
+			strLen += sprintf(tmp, "index:%d IP:%u.%u.%u.%u\n", i, ip[0], ip[1], ip[2], ip[3]); 
+			if(strLen <= len) strcat(buf, tmp);
+		}			
+	}
+	pthread_mutex_unlock(&filtRegLock);
+
+}
+void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
+	// clear buffer
+	buf[0] = '\0';
+}
 #endif /* _CPUMODE_ */

@@ -47,6 +47,26 @@ void sr_integ_init(struct sr_instance* sr)
  	subsystem->num_ifaces = 0;
  	subsystem->ifaces = NULL;
     sr_set_subsystem(sr, subsystem);
+
+#ifdef _CPUMODE_
+    netFPGA.device_name = DEFAULT_IFACE;
+	// Open the interface if possible
+    if (check_iface(&netFPGA)){
+		exit(1);
+	}
+	if (openDescriptor(&netFPGA)){
+		exit(1);
+	}    
+    
+    writeReg(&netFPGA, CPCI_REG_CTRL, 0x00010100);
+    sleep(2); // take a nap
+
+    pthread_mutex_init(&ifRegLock, NULL);
+    pthread_mutex_init(&filtRegLock, NULL);
+    pthread_mutex_init(&arpRegLock, NULL);
+    pthread_mutex_init(&routeRegLock, NULL);
+
+#endif // _CPUMODE_    
     
     pthread_rwlock_init(&tree_lock, NULL);
     pthread_mutex_init(&list_lock, NULL);
@@ -112,6 +132,44 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 
 	// Load thread pool system
 	initThreadPool();
+	
+#ifdef _CPUMODE_
+	int i;
+	pthread_mutex_lock(&ifRegLock);
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+		
+		// set MAC addresses
+		unsigned int mac_hi[4];
+		unsigned int mac_lo[4];
+		for(i = 0; i < subsystem->num_ifaces; i++){
+			uint8_t *mac_addr = subsystem->ifaces[i].addr;
+			mac_hi[i] = 0;
+			mac_lo[i] = 0;
+			mac_hi[i] |= ((unsigned int)mac_addr[0]) << 8;
+			mac_hi[i] |= ((unsigned int)mac_addr[1]);
+			mac_lo[i] |= ((unsigned int)mac_addr[2]) << 24;
+			mac_lo[i] |= ((unsigned int)mac_addr[3]) << 16;
+			mac_lo[i] |= ((unsigned int)mac_addr[4]) << 8;
+			mac_lo[i] |= ((unsigned int)mac_addr[5]);
+		}
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI, mac_hi[0]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO, mac_lo[0]);
+
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI, mac_hi[1]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO, mac_lo[1]);
+
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI, mac_hi[2]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO, mac_lo[2]);
+
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI, mac_hi[3]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO, mac_lo[3]);
+		
+	pthread_rwlock_unlock(&subsystem->if_lock);
+	pthread_mutex_unlock(&ifRegLock);
+	
+	writeIPfilter();
+	
+#endif // _CPUMODE_
 
     //testList(sr);
     
@@ -249,7 +307,12 @@ void sr_integ_destroy(struct sr_instance* sr)
     
 #ifdef _CPUMODE_
 	int i;
-	for(i = 0; i < subsystem->num_ifaces; i++) close(subsystem->ifaces[i].socket);	
+	for(i = 0; i < subsystem->num_ifaces; i++) close(subsystem->ifaces[i].socket);
+	closeDescriptor(&netFPGA);	
+    pthread_mutex_destroy(&ifRegLock);
+    pthread_mutex_destroy(&filtRegLock);
+    pthread_mutex_destroy(&arpRegLock);
+    pthread_mutex_destroy(&routeRegLock);
 #endif /* _CPUMODE_ */
     
 } /* -- sr_integ_destroy -- */

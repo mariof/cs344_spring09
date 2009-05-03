@@ -5,6 +5,7 @@
 #include "sr_vns.h"
 #include "sr_base_internal.h"
 #include "sr_integration.h"
+#include <pthread.h>
 #include "arpCache.h"
 #include "arpQueue.h"
 #include "icmpMsg.h"
@@ -12,6 +13,21 @@
 #include "threadPool.h"
 #include "pwospf.h"
 #include "topology.h"
+
+#ifdef _CPUMODE_
+
+#include "nf2util.h"
+#include "nf2.h"
+#include "reg_defines_cs344_starter.h"
+
+struct nf2device netFPGA;
+
+pthread_mutex_t ifRegLock;
+pthread_mutex_t filtRegLock;
+pthread_mutex_t arpRegLock;
+pthread_mutex_t routeRegLock;
+
+#endif // _CPUMODE_
 
 #define ETHERNET_HEADER_LENGTH 14
 #define ARP_HEADER_LENGTH 8
@@ -23,6 +39,7 @@
 #define ARP_QUEUE_REFRESH 2
 #define PING_LIST_REFRESH 2
 #define TOPO_REFRESH 2
+
 
 struct sr_router{
 	struct arpQueueNode* arpQueue;
@@ -66,6 +83,12 @@ void testList(struct sr_instance* sr);
 void fill_rtable(rtableNode **head);
 
 void sr_transport_input(uint8_t* packet /* borrowed */);
+
+#ifdef _CPUMODE_
+
+void writeIPfilter();
+
+#endif // _CPUMODE_
 
 /**
  * ---------------------------------------------------------------------------

@@ -4,7 +4,6 @@
 #include <string.h>
 #include "router.h"
 
-enum packetType {IPv4, ARP};
 
 inline void errorMsg(char* msg){
 	fputs("error: ", stderr); fputs(msg, stderr); fputs("\n", stderr);
@@ -754,3 +753,28 @@ int router_is_interface_enabled( struct sr_instance* sr, void* intf ) {
     return interface->enabled;
 }
 
+
+#ifdef _CPUMODE_
+
+void writeIPfilter(){
+	int i;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	pthread_mutex_lock(&filtRegLock);
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+	
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, subsystem->ifaces[i].ip);
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
+	}
+	for(i = subsystem->num_ifaces; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH ; i++){
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, 0);
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
+	}
+
+	pthread_rwlock_unlock(&subsystem->if_lock);
+	pthread_mutex_unlock(&filtRegLock);
+}
+
+#endif // _CPUMODE
