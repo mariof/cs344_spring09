@@ -772,7 +772,8 @@ void cli_opt_verbose( gross_option_t* data ) {
 // TODO: implement these
 void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len ){
 	char tmp[128];
-	uint32_t mac_hi, mac_lo, mac[4][6], stat[4];
+	uint32_t mac_hi, mac_lo, stat[4];
+	uint8_t mac[4][6];
 	int i, j, k;
 	int strLen = 0;
 
@@ -785,6 +786,8 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 	if(strLen <= len) strcat(buf, tmp); 
 
 	// read in all MACs to match interface names and status
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+
 	pthread_mutex_lock(&ifRegLock);
 	
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI, &mac_hi);
@@ -829,8 +832,6 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	pthread_mutex_unlock(&ifRegLock);
 
-
-	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		for(j = 0; j < 4; j++){
 			int match = 1;

@@ -263,6 +263,11 @@ void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
 	node = nxt_node;
     }
 
+	#ifdef _CPUMODE_
+	// update hw table
+	writeRoutingTable();
+	#endif // _CPUMODE_
+
     // release lock
     pthread_mutex_unlock(&rtable_lock);
 }

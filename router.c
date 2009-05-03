@@ -366,6 +366,31 @@ char* getIfName(uint32_t ip){
 	return NULL;
 }
 
+// returns interface name given MAC address. Pointer is borrowed from the original interface structure
+char* getIfNameFromMAC(uint8_t *mac){
+	int i, j;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
+	// loop interfaces
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		int match = 1;
+		for(j = 0; j < 6; j++){
+			if(subsystem->ifaces[i].addr[j] != mac[j]){
+				match = 0;
+				break;
+			}
+		}
+		if (match){
+			pthread_rwlock_unlock(&subsystem->if_lock);
+			return subsystem->ifaces[i].name;
+		}
+	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
+	return NULL;
+}
+
 // returns 1 if the interface with given IP is enabled
 int isEnabled(uint32_t ip){
 	int i;
@@ -756,6 +781,7 @@ int router_is_interface_enabled( struct sr_instance* sr, void* intf ) {
 
 #ifdef _CPUMODE_
 
+// writes IP filter to hardware
 void writeIPfilter(){
 	int i;
 	struct sr_instance* sr = get_sr();
@@ -796,14 +822,107 @@ void writeARPCache(arpTreeNode *node, int *index){
 	mac_lo |= ((unsigned int)mac_addr[4]) << 8;
 	mac_lo |= ((unsigned int)mac_addr[5]);
 
-	pthread_mutex_lock(&arpRegLock);
-	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, htonl(node->ip) );
-	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, mac_hi );
-	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, mac_lo );
-	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR, (*index)++ );
-	pthread_mutex_unlock(&arpRegLock);
-
+	if(*index < ROUTER_OP_LUT_ARP_TABLE_DEPTH){
+		pthread_mutex_lock(&arpRegLock);
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, htonl(node->ip) );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, mac_hi );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, mac_lo );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR, (*index)++ );
+		pthread_mutex_unlock(&arpRegLock);
+	}
     if(node->right) writeARPCache(node->right, index);
+}
+
+// writes routing table to hardware
+// caller must hold rtable_lock
+void writeRoutingTable(){
+	int i;
+	int index = 0;
+	uint32_t mac_hi, mac_lo;
+	uint8_t mac[4][6];
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+
+	// read in all MACs to match interface names
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+
+	pthread_mutex_lock(&ifRegLock);
+	
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO, &mac_lo);
+	mac[0][0] = (mac_hi >> 8) & 0xFF;
+	mac[0][1] = (mac_hi) & 0xFF;
+	mac[0][2] = (mac_lo >> 24) & 0xFF;
+	mac[0][3] = (mac_lo >> 16) & 0xFF;
+	mac[0][4] = (mac_lo >> 8) & 0xFF;
+	mac[0][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO, &mac_lo);
+	mac[1][0] = (mac_hi >> 8) & 0xFF;
+	mac[1][1] = (mac_hi) & 0xFF;
+	mac[1][2] = (mac_lo >> 24) & 0xFF;
+	mac[1][3] = (mac_lo >> 16) & 0xFF;
+	mac[1][4] = (mac_lo >> 8) & 0xFF;
+	mac[1][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO, &mac_lo);
+	mac[2][0] = (mac_hi >> 8) & 0xFF;
+	mac[2][1] = (mac_hi) & 0xFF;
+	mac[2][2] = (mac_lo >> 24) & 0xFF;
+	mac[2][3] = (mac_lo >> 16) & 0xFF;
+	mac[2][4] = (mac_lo >> 8) & 0xFF;
+	mac[2][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO, &mac_lo);
+	mac[3][0] = (mac_hi >> 8) & 0xFF;
+	mac[3][1] = (mac_hi) & 0xFF;
+	mac[3][2] = (mac_lo >> 24) & 0xFF;
+	mac[3][3] = (mac_lo >> 16) & 0xFF;
+	mac[3][4] = (mac_lo >> 8) & 0xFF;
+	mac[3][5] = (mac_lo) & 0xFF;
+
+	pthread_mutex_unlock(&ifRegLock);
+
+
+	pthread_mutex_lock(&routeRegLock);
+	rtableNode *rtable = subsystem->rtable;
+	while(rtable){
+		uint32_t ifs = 0;
+		if(index < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH){
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_0, htonl(rtable->ip) );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, htonl(rtable->netmask) );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, htonl(rtable->gateway) );
+			
+			ifs |= 0x40 * ( strcmp(getIfNameFromMAC(mac[3]), rtable->output_if) == 0 );
+			ifs |= 0x10 * ( strcmp(getIfNameFromMAC(mac[2]), rtable->output_if) == 0 );
+			ifs |= 0x04 * ( strcmp(getIfNameFromMAC(mac[1]), rtable->output_if) == 0 );
+			ifs |= 0x01 * ( strcmp(getIfNameFromMAC(mac[0]), rtable->output_if) == 0 );
+			
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, ifs );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR, index++ );		
+		}
+		else{
+			break;
+		}		
+		rtable = rtable->next;
+	}
+	// fill the rest of the table with 0s
+	for(i = index; i < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH; i++){
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_0, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR, i );		
+	}
+	
+	pthread_mutex_unlock(&routeRegLock);
+	
+	pthread_rwlock_unlock(&subsystem->if_lock);
+
 }
 
 #endif // _CPUMODE
