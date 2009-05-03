@@ -279,7 +279,27 @@ void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree){
 	*root = newTree;
 	pthread_rwlock_unlock(&tree_lock);
 	if(oldTree) arpDestroyTree(oldTree);
+
+#ifdef _CPUMODE_
+	int index = 0;
+	int i;
+	
+	pthread_rwlock_rdlock(&tree_lock);
+		writeARPCache(newTree, &index);
+	pthread_rwlock_unlock(&tree_lock);
+
+	pthread_mutex_lock(&arpRegLock);
+	for(i = index; i < ROUTER_OP_LUT_ARP_TABLE_DEPTH; i++){
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR, index++ );	
+	}
+	pthread_mutex_unlock(&arpRegLock);
+#endif // _CPUMODE_
+
 }
+
 
 /**
  * ---------------------------------------------------------------------------

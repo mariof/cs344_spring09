@@ -100,19 +100,16 @@ void sr_integ_init(struct sr_instance* sr)
 void sr_integ_hw_setup(struct sr_instance* sr)
 {
     printf(" ** sr_integ_hw(..) called \n");
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     
     // start refresh threads
 	sys_thread_new(arpCacheRefresh, NULL);
 	sys_thread_new(arpQueueRefresh, NULL);
 	sys_thread_new(refreshPingList, NULL);
 	    
-//    if( pthread_create(&arpCacheRefreshThread, NULL, arpCacheRefresh, NULL) == 0 )
-//    	pthread_detach(arpCacheRefreshThread);
-    
-//    if( pthread_create(&arpQueueRefreshThread, NULL, arpQueueRefresh, NULL) == 0 )
-//    	pthread_detach(arpQueueRefreshThread);
+	// clear arp tree (this is mainly for hw's benefit)
+	arpReplaceTree(&subsystem->arpTree, NULL);
 
-    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     // Load routing table
     fill_rtable(&(subsystem->rtable));
     

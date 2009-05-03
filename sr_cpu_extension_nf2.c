@@ -176,22 +176,17 @@ int sr_cpu_init_hardware(struct sr_instance* sr, const char* hwfile)
 
 int sr_cpu_input(struct sr_instance* sr)
 {
+    /* REQUIRES */
+    assert(sr);
+
+
+#ifdef _CPUMODE_
+
 	int i;
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	unsigned const int len = 8192;
 	int rec_len;
 	uint8_t buf[len];
-
-	
-    /* REQUIRES */
-    assert(sr);
-
-//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-//    fprintf(stderr, "!!!  sr_cpu_input(..) (sr_cpu_extension_nf2.c) called while running in cpu mode     !!!\n");
-//    fprintf(stderr, "!!!  you need to implement this function to read from the hardware                  !!!\n");
-//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-
-#ifdef _CPUMODE_
 
 	// this would be better off in multiple threads, but this function is a bad place to do that
 	i = 0;
@@ -230,7 +225,6 @@ int sr_cpu_input(struct sr_instance* sr)
 #endif /* _CPUMODE_ */
 
 
-
 } /* -- sr_cpu_input -- */
 
 /*-----------------------------------------------------------------------------
@@ -244,22 +238,16 @@ int sr_cpu_output(struct sr_instance* sr /* borrowed */,
                        unsigned int len,
                        const char* iface /* borrowed */)
 {
-	int i, retVal;
-	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-	
     /* REQUIRES */
     assert(sr);
     assert(buf);
     assert(iface);
 
-//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-//    fprintf(stderr, "!!! sr_cpu_output(..) (sr_cpu_extension_nf2.c) called while running in cpu mode !!!\n");
-//    fprintf(stderr, "!!! you need to implement this function to write to the hardware                !!!\n");
-//    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-
-
 #ifdef _CPUMODE_
-	
+
+	int i, retVal;
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+		
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		if(!strcmp(iface, subsystem->ifaces[i].name)){

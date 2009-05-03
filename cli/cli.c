@@ -254,6 +254,8 @@ void cli_show_ip_arp() {
     pthread_mutex_lock(&list_lock);
     struct arpCacheNode *node = subsystem->arpList;
     uint8_t ip_str[4];
+
+    cli_send_str("\nARP cache:\n");
     while(node != NULL) {
 		int2byteIP(node->ip, ip_str);
 		sprintf(buf, "IP: %u.%u.%u.%u MAC: %.2x:%.2x:%.2x:%.2x:%.2x:%.2x static:%d\n", 
@@ -273,6 +275,7 @@ void cli_show_ip_intf() {
     int i;
     
     pthread_rwlock_rdlock(&subsystem->if_lock);
+    cli_send_str("\nInterfaces:\n");
     for(i = 0; i < subsystem->num_ifaces; i++) {
 		struct sr_vns_if *node = &(subsystem->ifaces[i]);
 		uint8_t ip_str[4];
@@ -294,6 +297,8 @@ void cli_show_ip_route() {
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     rtableNode *node = subsystem->rtable;
     uint8_t ip[4], gw[4], nm[4];
+    
+    cli_send_str("\nRouting table:\n");
     while(node != NULL) {
 		int2byteIP(node->ip, ip);
 		int2byteIP(node->gateway, gw);
@@ -320,10 +325,10 @@ void cli_show_opt_verbose() {
 }
 
 void cli_show_ospf() {
-    cli_send_str( "Neighbor Information:\n" );
+    cli_send_str( "\nNeighbor Information:\n" );
     cli_show_ospf_neighbors();
 
-    cli_send_str( "Topology:\n" );
+    cli_send_str( "\nTopology:\n" );
     cli_show_ospf_topo();
 }
 
@@ -766,12 +771,118 @@ void cli_opt_verbose( gross_option_t* data ) {
 #ifdef _CPUMODE_
 // TODO: implement these
 void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len ){
+	char tmp[128];
+	uint32_t mac_hi, mac_lo, mac[4][6], stat[4];
+	int i, j, k;
+	int strLen = 0;
+
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
 	// clear buffer
 	buf[0] = '\0';
+	
+	strLen += sprintf(tmp, "\nInterface status:\n");
+	if(strLen <= len) strcat(buf, tmp); 
+
+	// read in all MACs to match interface names and status
+	pthread_mutex_lock(&ifRegLock);
+	
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_0_PHY_STATUS, &stat[0]);
+	mac[0][0] = (mac_hi >> 8) & 0xFF;
+	mac[0][1] = (mac_hi) & 0xFF;
+	mac[0][2] = (mac_lo >> 24) & 0xFF;
+	mac[0][3] = (mac_lo >> 16) & 0xFF;
+	mac[0][4] = (mac_lo >> 8) & 0xFF;
+	mac[0][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_1_PHY_STATUS, &stat[1]);
+	mac[1][0] = (mac_hi >> 8) & 0xFF;
+	mac[1][1] = (mac_hi) & 0xFF;
+	mac[1][2] = (mac_lo >> 24) & 0xFF;
+	mac[1][3] = (mac_lo >> 16) & 0xFF;
+	mac[1][4] = (mac_lo >> 8) & 0xFF;
+	mac[1][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_2_PHY_STATUS, &stat[2]);
+	mac[2][0] = (mac_hi >> 8) & 0xFF;
+	mac[2][1] = (mac_hi) & 0xFF;
+	mac[2][2] = (mac_lo >> 24) & 0xFF;
+	mac[2][3] = (mac_lo >> 16) & 0xFF;
+	mac[2][4] = (mac_lo >> 8) & 0xFF;
+	mac[2][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_3_PHY_STATUS, &stat[3]);
+	mac[3][0] = (mac_hi >> 8) & 0xFF;
+	mac[3][1] = (mac_hi) & 0xFF;
+	mac[3][2] = (mac_lo >> 24) & 0xFF;
+	mac[3][3] = (mac_lo >> 16) & 0xFF;
+	mac[3][4] = (mac_lo >> 8) & 0xFF;
+	mac[3][5] = (mac_lo) & 0xFF;
+
+	pthread_mutex_unlock(&ifRegLock);
+
+
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		for(j = 0; j < 4; j++){
+			int match = 1;
+			for(k = 0; k < 6; k++){
+				if(mac[j][k] != subsystem->ifaces[i].addr[k]) match = 0;
+				break;
+			}
+			if(match){
+				strLen += sprintf(tmp, "If name: %s  enabled: %d\n", subsystem->ifaces[i].name, (stat[j] >> 5) & 0x01);
+				if(strLen <= len) strcat(buf, tmp); 				
+				break;
+			}
+		}
+	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
 }
 void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
+	char tmp[128];
+	uint32_t mac_lo, mac_hi, ip;
+	uint8_t mac[6], strIP[4];
+	int i;
+	int strLen = 0;
+
 	// clear buffer
 	buf[0] = '\0';
+	
+	strLen += sprintf(tmp, "\nARP cache:\n");
+	if(strLen <= len) strcat(buf, tmp); 
+
+	pthread_mutex_lock(&arpRegLock);
+	for(i = 0; i < ROUTER_OP_LUT_ARP_TABLE_DEPTH; i++){	
+		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, &ip);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, &mac_hi);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, &mac_lo);	
+		writeReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_RD_ADDR, i);
+		
+		int2byteIP(ntohl(ip), strIP);
+		mac[0] = (mac_hi >> 8) & 0xFF;
+		mac[1] = (mac_hi) & 0xFF;
+		mac[2] = (mac_lo >> 24) & 0xFF;
+		mac[3] = (mac_lo >> 16) & 0xFF;
+		mac[4] = (mac_lo >> 8) & 0xFF;
+		mac[5] = (mac_lo) & 0xFF;
+		
+		if(ip != 0){
+			strLen += sprintf(	tmp, "IP: %u.%u.%u.%u  MAC: %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n", 
+								strIP[0], strIP[1], strIP[2], strIP[3],
+								mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]); 
+			if(strLen <= len) strcat(buf, tmp);
+		}			
+	}	
+	pthread_mutex_unlock(&arpRegLock);
 }
 void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len ) {
 	char tmp[128];
@@ -782,7 +893,7 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 	// clear buffer
 	buf[0] = '\0';
 	
-	strLen += sprintf(tmp, "IP filter:\n");
+	strLen += sprintf(tmp, "\nIP filter:\n");
 	if(strLen <= len) strcat(buf, tmp); 
 
 	pthread_mutex_lock(&filtRegLock);
@@ -792,8 +903,8 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 		
 		if(val != 0){
 			uint8_t ip[4];
-			int2byteIP(val, ip);
-			strLen += sprintf(tmp, "index:%d IP:%u.%u.%u.%u\n", i, ip[0], ip[1], ip[2], ip[3]); 
+			int2byteIP(ntohl(val), ip);
+			strLen += sprintf(tmp, "index: %d  IP: %u.%u.%u.%u\n", i, ip[0], ip[1], ip[2], ip[3]); 
 			if(strLen <= len) strcat(buf, tmp);
 		}			
 	}
@@ -801,7 +912,40 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 }
 void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
+	char tmp[256];
+	uint32_t subnet, mask, gw, ifs;
+	uint8_t strSubnet[4], strMask[4], strGw[4];
+	int i;
+	int strLen = 0;
+
 	// clear buffer
 	buf[0] = '\0';
+	
+	strLen += sprintf(tmp, "\nRouting table:\n");
+	if(strLen <= len) strcat(buf, tmp); 
+
+	pthread_mutex_lock(&routeRegLock);
+	for(i = 0; i < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH; i++){	
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_0, &subnet);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, &mask);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, &gw);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, &ifs);	
+		writeReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_RD_ADDR, i);
+		
+		int2byteIP(ntohl(subnet), strSubnet);
+		int2byteIP(ntohl(mask), strMask);
+		int2byteIP(ntohl(gw), strGw);
+		
+		if(subnet != 0 || mask != 0 || gw != 0 || ifs != 0){
+			strLen += sprintf(	tmp, "subnet: %u.%u.%u.%u  mask: %u.%u.%u.%u  gw: %u.%u.%u.%u  interfaces: %u%u %u%u %u%u %u%u\n", 
+								strSubnet[0], strSubnet[1], strSubnet[2], strSubnet[3],
+								strMask[0], strMask[1], strMask[2], strMask[3],
+								strGw[0], strGw[1], strGw[2], strGw[3],
+								(ifs >> 7) & 0x01, (ifs >> 6) & 0x01, (ifs >> 5) & 0x01, (ifs >> 4) & 0x01,
+								(ifs >> 3) & 0x01, (ifs >> 2) & 0x01, (ifs >> 1) & 0x01, (ifs >> 0) & 0x01); 
+			if(strLen <= len) strcat(buf, tmp);
+		}			
+	}	
+	pthread_mutex_unlock(&routeRegLock);
 }
 #endif /* _CPUMODE_ */

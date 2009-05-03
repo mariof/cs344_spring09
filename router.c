@@ -765,7 +765,7 @@ void writeIPfilter(){
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	
 	for(i = 0; i < subsystem->num_ifaces; i++){
-		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, subsystem->ifaces[i].ip);
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, htonl(subsystem->ifaces[i].ip));
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
 	}
 	for(i = subsystem->num_ifaces; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH ; i++){
@@ -775,6 +775,35 @@ void writeIPfilter(){
 
 	pthread_rwlock_unlock(&subsystem->if_lock);
 	pthread_mutex_unlock(&filtRegLock);
+}
+
+
+// writes ARP cache to hardware
+// caller mush hold read lock on tree_lock
+void writeARPCache(arpTreeNode *node, int *index){
+    if(node == NULL) return;
+    if(node->left) writeARPCache(node->left, index);
+
+	unsigned int mac_hi;
+	unsigned int mac_lo;
+	uint8_t *mac_addr = node->mac;
+	mac_hi = 0;
+	mac_lo = 0;
+	mac_hi |= ((unsigned int)mac_addr[0]) << 8;
+	mac_hi |= ((unsigned int)mac_addr[1]);
+	mac_lo |= ((unsigned int)mac_addr[2]) << 24;
+	mac_lo |= ((unsigned int)mac_addr[3]) << 16;
+	mac_lo |= ((unsigned int)mac_addr[4]) << 8;
+	mac_lo |= ((unsigned int)mac_addr[5]);
+
+	pthread_mutex_lock(&arpRegLock);
+	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, htonl(node->ip) );
+	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, mac_hi );
+	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, mac_lo );
+	writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR, (*index)++ );
+	pthread_mutex_unlock(&arpRegLock);
+
+    if(node->right) writeARPCache(node->right, index);
 }
 
 #endif // _CPUMODE

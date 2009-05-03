@@ -69,6 +69,7 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 int isMyIP(uint32_t ip);
 int isEnabled(uint32_t ip);
 char* getIfName(uint32_t ip);
+void writeARPCache(arpTreeNode *node, int *index);
 
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);
