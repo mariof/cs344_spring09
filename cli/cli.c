@@ -513,6 +513,7 @@ void cli_manip_ip_intf_set( gross_intf_t* data ) {
 		
 		cli_show_ip_intf();
 		
+		updateNeighbors();
 		sendLSU();
         cli_send_strs( 2, data->intf_name, " updated\n" );
     }

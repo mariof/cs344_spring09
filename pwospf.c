@@ -62,6 +62,43 @@ void pwospfTimeoutHelloThread(void *dummy){
 	}
 }
 
+// removes all disabled interfaces from the neighbor list
+void updateNeighbors(){
+	int i;
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	struct pwospf_if* iface = NULL;
+	
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		iface = findPWOSPFif(&subsystem->pwospf, subsystem->ifaces[i].ip);
+		if(iface == NULL) continue;
+		pthread_mutex_lock(&iface->neighbor_lock);
+			struct pwospf_neighbor* nbor = iface->neighbor_list;
+			struct pwospf_neighbor* prev_nbor = NULL;
+			while(nbor){
+				if( subsystem->ifaces[i].enabled == 0 ){
+					if(prev_nbor){
+						prev_nbor->next = nbor->next;
+						free(nbor);
+						nbor = prev_nbor->next;
+					}
+					else{
+						iface->neighbor_list = nbor->next;
+						free(nbor);
+						nbor = nbor->next;
+					}
+				}
+				else{
+					prev_nbor = nbor;
+					nbor = nbor->next;
+				}
+			}
+		pthread_mutex_unlock(&iface->neighbor_lock);
+	}	
+	pthread_rwlock_unlock(&subsystem->if_lock);
+}
+
 // Thread that sends LSU packets
 void pwospfSendLSUThread(void* dummy){
 	struct sr_instance* sr = get_sr();

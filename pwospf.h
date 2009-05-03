@@ -47,5 +47,6 @@ struct pwospf_neighbor* findOSPFNeighbor(struct pwospf_if* interface, uint32_t i
 void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len);
 void pwospfTimeoutHelloThread(void *dummy);
 int findNeighbor(uint32_t routerID, char* if_name, uint32_t *ip);
+void updateNeighbors();
 
 #endif // PWOSPF_H

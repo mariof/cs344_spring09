@@ -692,6 +692,7 @@ int router_interface_set_enabled( struct sr_instance* sr, const char* name, int 
 		    else {
 				subsystem->ifaces[i].enabled = enabled;
 				pthread_rwlock_unlock(&subsystem->if_lock);
+				updateNeighbors();
 				sendLSU();
 				return 0;
 		    }
