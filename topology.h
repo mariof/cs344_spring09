@@ -79,4 +79,6 @@ int update_lsu(topo_router *adj_list);
  */
 void update_rtable();
 
+// adds this router to topology
+void addMeToTopology();
 #endif

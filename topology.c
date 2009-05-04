@@ -148,7 +148,7 @@ int purge_topo()
     topo_router *rtr = topo_head;
 
     while(rtr != NULL) {
-	if(difftime(time(NULL), rtr->last_update_time) > LSU_TIMEOUT) {
+	if(time(NULL) > rtr->last_update_time && difftime(time(NULL), rtr->last_update_time) > LSU_TIMEOUT) {
 	    topo_router *nxt_rtr = rtr->next;
 
 	    // unlink the adj list from the topo db
@@ -179,6 +179,7 @@ int purge_topo()
 
 	    // free rtr
 	    free(rtr);
+		num_routers--;
 	    ret = 1;
 	    rtr = nxt_rtr;
 	}
@@ -267,23 +268,23 @@ int update_lsu(topo_router *adj_list)
     int ret = 0;
     topo_router *rtr = topo_head;
     if(rtr == NULL) {
-	topo_head = adj_list;
-	num_routers++;
-	return 1;
+		topo_head = adj_list;
+		num_routers++;
+		return 1;
     }
 
     if(rtr->router_id > adj_list->router_id) {
-	adj_list->next = rtr;
-	rtr->prev = adj_list;
-	topo_head = adj_list;
-	num_routers++;
-	return 1;
+		adj_list->next = rtr;
+		rtr->prev = adj_list;
+		topo_head = adj_list;
+		num_routers++;
+		return 1;
     }
 
     while(rtr->next != NULL) {
        	if(adj_list->router_id < rtr->next->router_id) {
-	    break;
-	}
+	    	break;
+		}
 	rtr = rtr->next;
     }
 
@@ -443,6 +444,12 @@ static void insert_shadow_node(rtableNode **head, uint32_t ip, uint32_t netmask,
 
 void update_rtable()
 {
+	// add myself to topology
+	addMeToTopology();
+
+    //acquire lock
+    pthread_mutex_lock(&topo_lock);
+		
     int n = num_routers;
 
 	// if there is no topology, no point in doing anything
@@ -456,17 +463,15 @@ void update_rtable()
     int *parent_vec = malloc(sizeof(int)*n);
     int *tight_vec = malloc(sizeof(int)*n);
 
-    //acquire lock
-    pthread_mutex_lock(&topo_lock);
-
     // fill rtr_vec, dist_vec, parent_vec, tight_vec
     int i, j;
     topo_router *cur_rtr = topo_head;
+
     for(i = 0; i < n; i++, cur_rtr = cur_rtr->next) {
-	rtr_vec[i] = cur_rtr;
-	dist_vec[i] = INT_MAX;
-	parent_vec[i] = -1;
-	tight_vec[i] = 0;
+		rtr_vec[i] = cur_rtr;
+		dist_vec[i] = INT_MAX;
+		parent_vec[i] = -1;
+		tight_vec[i] = 0;
     }
 
     // fill adj_mat
@@ -489,7 +494,7 @@ void update_rtable()
     }
 
     // print adj_mat
-    /*
+  	
     printf("----------------------------------------------\n");
     printf("----------------------------------------------\n");
     for(i = 0, cur_rtr = topo_head; i < n; i++, cur_rtr = cur_rtr->next) {
@@ -505,7 +510,7 @@ void update_rtable()
     }
     printf("----------------------------------------------\n");
     printf("----------------------------------------------\n");
-    */
+    
 
     // run dijkstra's algo
     struct sr_instance* sr = get_sr();
@@ -513,91 +518,181 @@ void update_rtable()
     int z, u;
     int s = get_index((topo_router**)rtr_vec, n, subsystem->pwospf.routerID); // source router
     if(s < 0) {
-	printf("Failed to get index of myself...something's wrong!\n");
+		printf("Failed to get index of myself...something's wrong!\n");
+		exit(1);
     }
     dist_vec[s] = 0;
     parent_vec[s] = s;
     for(i = 0; i < n; i++) {
-	u = get_min(dist_vec, tight_vec, n);
-	tight_vec[u] = 1;
-	if(dist_vec[u] == INT_MAX)
-	    continue;
-	for(z = 0; z < n; z++) {
-	    if(successor(adj_mat, n, u, z) && !tight_vec[z] 
-		    && adj_mat[u*n+z] < INT_MAX 
-		    && dist_vec[u]+adj_mat[u*n+z] < dist_vec[z]) {
-		dist_vec[z] = dist_vec[u] + adj_mat[u*n+z];
-		parent_vec[z] = u;
-	    }
-	}
+		u = get_min(dist_vec, tight_vec, n);
+		tight_vec[u] = 1;
+		if(dist_vec[u] == INT_MAX) continue;
+		for(z = 0; z < n; z++) {
+		    if(successor(adj_mat, n, u, z) && !tight_vec[z] 
+						    && adj_mat[u*n+z] < INT_MAX 
+						    && dist_vec[u]+adj_mat[u*n+z] < dist_vec[z]) {
+				dist_vec[z] = dist_vec[u] + adj_mat[u*n+z];
+				parent_vec[z] = u;
+		    }
+		}
     }
-
 
     // Sort vectors by distance - increasing order
     // simple bubble sort
     for (i=0; i<n-1; i++) {
 	for (j=0; j<n-1-i; j++)
 	    if (dist_vec[j+1] < dist_vec[j]) {  /* compare the two neighbors */
-		int tmp_int;
-		topo_router *tmp_rtr;
-		// swap dist_vec neighbors
-		tmp_int = dist_vec[j];
-		dist_vec[j] = dist_vec[j+1];
-		dist_vec[j+1] = tmp_int;
-		// swap rtr_vec neighbors
-		tmp_rtr = rtr_vec[j];
-		rtr_vec[j] = rtr_vec[j+1];
-		rtr_vec[j+1] = tmp_rtr;
-		// swap parent_vec neighbors
-		tmp_int = parent_vec[j];
-		parent_vec[j] = parent_vec[j+1];
-		parent_vec[j+1] = tmp_int;
+			int tmp_int;
+			topo_router *tmp_rtr;
+			// swap dist_vec neighbors
+			tmp_int = dist_vec[j];
+			dist_vec[j] = dist_vec[j+1];
+			dist_vec[j+1] = tmp_int;
+			// swap rtr_vec neighbors
+			tmp_rtr = rtr_vec[j];
+			rtr_vec[j] = rtr_vec[j+1];
+			rtr_vec[j+1] = tmp_rtr;
+			// swap parent_vec neighbors
+			tmp_int = parent_vec[j];
+			parent_vec[j] = parent_vec[j+1];
+			parent_vec[j+1] = tmp_int;
 	    }
     }
-
     
     // For each router, reconstruct path
     rtableNode *shadow = NULL;
     for(i = 0; i < n; i++) {
-	if(i == s) {
-	    // I'm da ROUTER!
-	    // add all my subnets to the routing table
-	    struct pwospf_if *pif = subsystem->pwospf.if_list;
-	    while(pif != NULL) {
-		char if_name[SR_NAMELEN];
-		strcpy(if_name, getIfName(pif->ip));
-		//insert_shadow_node
-		insert_shadow_node(&shadow, pif->ip, pif->netmask, 0, if_name, 0);
-		pif = pif->next;
-	    }
-	    continue;
-	}
+		if(i == s) {
+		    // I'm da ROUTER!
+		    // add all my subnets to the routing table
+		    struct pwospf_if *pif = subsystem->pwospf.if_list;
+		    while(pif != NULL) {
+				char if_name[SR_NAMELEN];
+				strcpy(if_name, getIfName(pif->ip));
+				//insert_shadow_node
+				insert_shadow_node(&shadow, pif->ip, pif->netmask, 0, if_name, 0);
+				pif = pif->next;
+		    }
+ 		    continue;
+		}
 
-	int curr_index = i;
-	while(parent_vec[curr_index] != s) {
-	    curr_index = parent_vec[curr_index];
-	}
-	//curr_index is the index of the gateway router
-	//add all subnets advertised by it to the routing table
-	lsu_ad *nbr = rtr_vec[i]->ads;
-	while(nbr != NULL) {
-	    //get if,gw info from pwospf
-	    char if_name[SR_NAMELEN];
-	    uint32_t gw;
-	    findNeighbor(rtr_vec[i]->router_id, if_name, &gw);
-	    //insert_shadow_node
-	    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, gw, if_name, 0);
-	}
+		int curr_index = i;
+		while(parent_vec[curr_index] != s) {
+		    curr_index = parent_vec[curr_index];
+		}
+		//curr_index is the index of the gateway router
+		//add all subnets advertised by it to the routing table
+		lsu_ad *nbr = rtr_vec[i]->ads;
+		while(nbr != NULL) {
+		    //get if,gw info from pwospf
+		    char if_name[SR_NAMELEN];
+		    uint32_t gw;
+		    findNeighbor(rtr_vec[i]->router_id, if_name, &gw);
+		    //insert_shadow_node
+		    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, gw, if_name, 0);
+			nbr = nbr->next;
+		}
     }
     rebuild_rtable(&(subsystem->rtable), shadow);
 
     // release all allocated memory
+    printf("free 1\n");
     free(adj_mat);
+    printf("free 2\n");
     free(rtr_vec);
+    printf("free 3\n");
     free(dist_vec);
+    printf("free 4\n");
     free(parent_vec);
+    printf("free 5\n");
     free(tight_vec);
+    printf("free 6\n");
 
     //release lock
     pthread_mutex_unlock(&topo_lock);
+}
+
+
+void addMeToTopology(){
+	int i, advCnt = 0;
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	// create topology data structures					
+	topo_router *head = (topo_router*)malloc(sizeof(topo_router));
+	head->router_id = subsystem->pwospf.routerID;
+	head->area_id = subsystem->pwospf.areaID;
+	head->last_seq = 0;
+	head->last_update_time = UINT_MAX;
+	head->next = NULL;
+	head->prev = NULL;
+	head->ads = NULL;
+	
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+	for(i = 0; i < subsystem->num_ifaces; i++){
+		if(subsystem->ifaces[i].enabled == 0) continue;
+
+		struct pwospf_if *pif = findPWOSPFif(&subsystem->pwospf, subsystem->ifaces[i].ip);
+		if(pif == NULL) continue;
+		
+		pthread_mutex_lock(&pif->neighbor_lock);
+		struct pwospf_neighbor *nbr = pif->neighbor_list;
+		while(nbr){
+
+			lsu_ad *node = (lsu_ad*)malloc(sizeof(lsu_ad));
+			node->subnet = nbr->ip & pif->netmask;
+			node->mask = pif->netmask;
+			node->router_id = nbr->id;
+			node->next = NULL;
+			node->prev = NULL;
+				
+			advCnt++;
+			nbr = nbr->next;
+			
+			if(head->ads == NULL){
+				head->ads = node;
+				continue;
+			}
+			
+			// insert node into sorted list
+			lsu_ad *tmp = head->ads;
+			while(tmp){
+				if(node->router_id < tmp->router_id) break;
+				tmp = tmp->next;
+			}
+			if(tmp==NULL){ // find last list element and insert after it
+				tmp = head->ads;
+				while(tmp){
+					if(tmp->next){
+						tmp = tmp->next;
+					}
+					else{
+						break;
+					}
+				}
+				tmp->next = node;
+				node->prev = tmp;
+			}
+			else if(tmp->prev == NULL){ // insert before first element
+				node->next = tmp;
+				tmp->prev = node;
+				head->ads = node;
+			}
+			else{
+				node->next = tmp;
+				node->prev = tmp->prev;
+				tmp->prev->next = node;
+				tmp->prev = node;
+			}
+		}
+		pthread_mutex_unlock(&pif->neighbor_lock);
+	
+	}
+	pthread_rwlock_unlock(&subsystem->if_lock);
+
+	head->num_ads = advCnt;
+			
+	// add me to topology pretending I sent myself an LSU packet
+	update_lsu(head);
+	
 }

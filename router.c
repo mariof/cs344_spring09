@@ -479,9 +479,7 @@ void arpCacheRefresh(void *dummy){
 void topologyRefresh(void *dummy){
     while(1) {
 	if(purge_topo()) {
-		printf("before\n");
 	    update_rtable();
-		printf("after\n");
 	}
 	sleep(TOPO_REFRESH);
     }
