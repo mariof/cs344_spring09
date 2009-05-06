@@ -2,6 +2,14 @@
 #include "pwospf.h"
 #include "router.h"
 
+#ifndef max
+	#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
+#endif
+
+#ifndef min
+	#define min( a, b ) ( ((a) < (b)) ? (a) : (b) )
+#endif
+
 int add_router(uint32_t router_id, uint16_t last_seq)
 {
     //acquire lock
@@ -75,14 +83,18 @@ int get_last_seq(uint32_t router_id)
     pthread_mutex_lock(&topo_lock);
 
     topo_router *rtr = topo_head;
-    if(rtr == NULL) {
+    int last_seq;
+    /*
+     * redundant stuff
+     * if(rtr == NULL) {
     pthread_mutex_unlock(&topo_lock);
    	return -1;
-    }
+    }*/
     while(rtr != NULL) {
 	if(rtr->router_id == router_id){
+	    last_seq = rtr->last_seq;
 	    pthread_mutex_unlock(&topo_lock);
-	    return rtr->last_seq;
+	    return last_seq;
 	}
 	rtr = rtr->next;
     }
@@ -167,6 +179,7 @@ int purge_topo()
 	    lsu_ad *old_ad, *prev_ad;
 	    old_ad = rtr->ads;
 	    if(old_ad != NULL) {
+		// go to the end first 
 		while(old_ad->next != NULL) {
 		    old_ad = old_ad->next;
 		}
@@ -175,6 +188,7 @@ int purge_topo()
 		    free(old_ad);
 		    old_ad = prev_ad;
 		}
+		free(old_ad);
 	    }
 
 	    // free rtr
@@ -183,7 +197,9 @@ int purge_topo()
 	    ret = 1;
 	    rtr = nxt_rtr;
 	}
-	rtr = rtr->next;
+	else {
+	    rtr = rtr->next;
+	}
     }
 
     //release lock
@@ -267,9 +283,13 @@ int update_lsu(topo_router *adj_list)
 {
     int ret = 0;
     topo_router *rtr = topo_head;
+    //acquire lock
+    pthread_mutex_lock(&topo_lock);
     if(rtr == NULL) {
 		topo_head = adj_list;
 		num_routers++;
+		//release lock
+		pthread_mutex_unlock(&topo_lock);
 		return 1;
     }
 
@@ -278,10 +298,13 @@ int update_lsu(topo_router *adj_list)
 		rtr->prev = adj_list;
 		topo_head = adj_list;
 		num_routers++;
+		//release lock
+		pthread_mutex_unlock(&topo_lock);
 		return 1;
     }
 
     while(rtr->next != NULL) {
+	// loop invariant: rtr->router_id <= adj_list->router_id
        	if(adj_list->router_id < rtr->next->router_id) {
 	    	break;
 		}
@@ -306,6 +329,7 @@ int update_lsu(topo_router *adj_list)
 	    // No change!
 	    // just update the last received sequence number
 	    rtr->last_seq = adj_list->last_seq;
+	    rtr = adj_list;
 	    ret = 0;
 	}
 	else {
@@ -321,23 +345,26 @@ int update_lsu(topo_router *adj_list)
 	    if(rtr->next != NULL) {
 		rtr->next->prev = adj_list;
 	    }
-	    // free the old adj list
-	    // free the ads first
-	    old_ad = rtr->ads;
-	    if(old_ad != NULL) {
-		while(old_ad->next != NULL) {
-		    old_ad = old_ad->next;
-		}
-		while(old_ad->prev != NULL) {
-		    prev_ad = old_ad->prev;
-		    free(old_ad);
-		    old_ad = prev_ad;
-		}
-	    }
-	    // free rtr
-	    free(rtr);
-	    ret = 1;
 	}
+
+	// free the old or new adj list
+	// depending on the situation
+	// free the ads first
+	old_ad = rtr->ads;
+	if(old_ad != NULL) {
+	    while(old_ad->next != NULL) {
+		old_ad = old_ad->next;
+	    }
+	    while(old_ad->prev != NULL) {
+		prev_ad = old_ad->prev;
+		free(old_ad);
+		old_ad = prev_ad;
+	    }
+	    free(old_ad);
+	}
+	// free rtr
+	free(rtr);
+	ret = 1;
     }
     else {
 	// insert new router
@@ -350,6 +377,8 @@ int update_lsu(topo_router *adj_list)
 	num_routers++;
 	ret = 1;
     }
+    //release lock
+    pthread_mutex_unlock(&topo_lock);
     return ret;
 }
 
@@ -357,7 +386,7 @@ int update_lsu(topo_router *adj_list)
  * ------------------------------- helper functions to run dijkstra's algo ------------------
  * */
 
-static int get_index(topo_router **rtr_vec, int n, uint32_t router_id) {
+static int get_index(const topo_router **rtr_vec, int n, uint32_t router_id) {
     int i;
     for(i = 0; i < n; i++) {
 	if(rtr_vec[i]->router_id == router_id)
@@ -377,7 +406,7 @@ static int get_min(const int *dist_vec, const int *tight_vec, int n) {
     return min_index;
 }
 
-static int successor(int *adj_mat, int n, int u, int z)
+static int successor(const int *adj_mat, int n, int u, int z)
 {
     return (adj_mat[u*n+z] < INT_MAX && u != z);
 }
@@ -475,7 +504,7 @@ void update_rtable()
     }
 
     // fill adj_mat
-    for(i = 0, cur_rtr = topo_head; i < n; i++, cur_rtr = cur_rtr->next) {
+    for(i = 0, cur_rtr = topo_head; i < n && cur_rtr != NULL; i++, cur_rtr = cur_rtr->next) {
 	lsu_ad *cur_ad = cur_rtr->ads;
 	for(j = 0; j < n; j++) {
 	    if(cur_ad == NULL) {
@@ -511,13 +540,21 @@ void update_rtable()
     printf("----------------------------------------------\n");
     printf("----------------------------------------------\n");
     
+    // make the matrix symmetric
+    for(i = 0; i < n; i++) {
+	for(j = 0; j < n; j++) {
+	    if(i == j)
+		continue;
+	    adj_mat[i*n+j] = adj_mat[j*n+i] = max(adj_mat[i*n+j], adj_mat[j*n+i]);
+	}
+    }
 
     // run dijkstra's algo
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     int z, u;
     int s = get_index((topo_router**)rtr_vec, n, subsystem->pwospf.routerID); // source router
-    if(s < 0) {
+    if(s < 0 || s >= n) {
 		printf("Failed to get index of myself...something's wrong!\n");
 		exit(1);
     }
@@ -525,6 +562,9 @@ void update_rtable()
     parent_vec[s] = s;
     for(i = 0; i < n; i++) {
 		u = get_min(dist_vec, tight_vec, n);
+		if(u < 0) {
+		    printf("get_min returned negative value...something's wrong - breaking out\n");
+		}
 		tight_vec[u] = 1;
 		if(dist_vec[u] == INT_MAX) continue;
 		for(z = 0; z < n; z++) {
@@ -539,8 +579,8 @@ void update_rtable()
 
     // Sort vectors by distance - increasing order
     // simple bubble sort
-    for (i=0; i<n-1; i++) {
-	for (j=0; j<n-1-i; j++)
+    for (i = 0; i < n - 1; i++) {
+	for (j = 0; j < n-1 - i; j++)
 	    if (dist_vec[j+1] < dist_vec[j]) {  /* compare the two neighbors */
 			int tmp_int;
 			topo_router *tmp_rtr;
@@ -623,7 +663,7 @@ void addMeToTopology(){
 	head->router_id = subsystem->pwospf.routerID;
 	head->area_id = subsystem->pwospf.areaID;
 	head->last_seq = 0;
-	head->last_update_time = UINT_MAX;
+	head->last_update_time = (time_t)UINT_MAX;
 	head->next = NULL;
 	head->prev = NULL;
 	head->ads = NULL;

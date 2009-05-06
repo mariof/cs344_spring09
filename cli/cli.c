@@ -863,10 +863,10 @@ void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, uns
 
 	pthread_mutex_lock(&arpRegLock);
 	for(i = 0; i < ROUTER_OP_LUT_ARP_TABLE_DEPTH; i++){	
+		writeReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_RD_ADDR, i);
 		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, &ip);	
 		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, &mac_hi);	
 		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, &mac_lo);	
-		writeReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_RD_ADDR, i);
 		
 		int2byteIP(ntohl(ip), strIP);
 		mac[0] = (mac_hi >> 8) & 0xFF;
@@ -899,8 +899,8 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	pthread_mutex_lock(&filtRegLock);
 	for(i = 0; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH; i++){	
-		readReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, &val);	
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_RD_ADDR, i);
+		readReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, &val);	
 		
 		if(val != 0){
 			uint8_t ip[4];
@@ -927,11 +927,11 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 
 	pthread_mutex_lock(&routeRegLock);
 	for(i = 0; i < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH; i++){	
+		writeReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_RD_ADDR, i);
 		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_0, &subnet);	
 		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, &mask);	
 		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, &gw);	
 		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, &ifs);	
-		writeReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_RD_ADDR, i);
 		
 		int2byteIP(ntohl(subnet & mask), strSubnet);
 		int2byteIP(ntohl(mask), strMask);
