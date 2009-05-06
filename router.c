@@ -360,9 +360,13 @@ char* getIfName(uint32_t ip){
 	// loop interfaces
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
+	    printf("getIfName: for-loop %d\n", i);
 		if (subsystem->ifaces[i].ip == ip){
+		    printf("getIfName: found the ip\n");
+		    char *ifname = subsystem->ifaces[i].name;
+		    printf("Interface name = %s\n", ifname);
 			pthread_rwlock_unlock(&subsystem->if_lock);
-			return subsystem->ifaces[i].name;
+			return ifname;
 		}
 	}
 	pthread_rwlock_unlock(&subsystem->if_lock);
