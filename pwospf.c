@@ -661,12 +661,16 @@ int findNeighbor(uint32_t routerID, char* if_name, uint32_t *ip){
 	pthread_rwlock_rdlock(&subsystem->if_lock);	
 	iface = subsystem->pwospf.if_list;
 	while(iface){
+	    printf("findNeighbor: iface while loop\n");
 		pthread_mutex_lock(&iface->neighbor_lock);
 			struct pwospf_neighbor *nbor = iface->neighbor_list;
 			while(nbor){
+			    printf("findNeighbor: nbor while loop\n");
 				if(nbor->id == routerID){
+				    printf("findNeighbor: found matching neighbor\n");
 					*ip = nbor->ip;
 					strcpy(if_name, getIfName(nbor->ip));
+					printf("findNeighbor: releasing locks and returning\n");
 					pthread_mutex_unlock(&iface->neighbor_lock);
 					pthread_rwlock_unlock(&subsystem->if_lock);	
 					return 1;
