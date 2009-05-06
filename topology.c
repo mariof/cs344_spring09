@@ -642,18 +642,18 @@ void update_rtable()
 		}
 
 		int curr_index = i;
-		while(parent_vec[curr_index] != s){// && curr_index >= 0 && curr_index < n) {
+		while(parent_vec[curr_index] != s){
 		    curr_index = parent_vec[curr_index];
 		    if(curr_index < 0 || curr_index >= n) {
 			//disconnected node
 			break;
 		    }
 		}
-
-		if(curr_index < 0 || curr_index >= n) {
+		if(parent_vec[curr_index] < 0 || parent_vec[curr_index] >= n) {
 		    //disconnected node
 		    continue;
 		}
+
 		//printf("curr_index = %d\n", curr_index);
 
 		//curr_index is the index of the gateway router
