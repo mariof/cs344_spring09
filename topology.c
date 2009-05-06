@@ -386,7 +386,7 @@ int update_lsu(topo_router *adj_list)
  * ------------------------------- helper functions to run dijkstra's algo ------------------
  * */
 
-static int get_index(const topo_router **rtr_vec, int n, uint32_t router_id) {
+static int get_index(topo_router **rtr_vec, int n, uint32_t router_id) {
     int i;
     for(i = 0; i < n; i++) {
 	if(rtr_vec[i]->router_id == router_id)
@@ -617,9 +617,15 @@ void update_rtable()
 		}
 
 		int curr_index = i;
-		while(parent_vec[curr_index] != s) {
+		while(parent_vec[curr_index] != s && curr_index >= 0 && curr_index < n) {
 		    curr_index = parent_vec[curr_index];
 		}
+
+		if(curr_index < 0 || curr_index >= n) {
+		    //disconnected node
+		    continue;
+		}
+
 		//curr_index is the index of the gateway router
 		//add all subnets advertised by it to the routing table
 		lsu_ad *nbr = rtr_vec[i]->ads;
