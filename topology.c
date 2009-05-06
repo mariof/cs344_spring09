@@ -650,7 +650,12 @@ void update_rtable()
 		    //get if,gw info from pwospf
 		    char if_name[SR_NAMELEN];
 		    uint32_t gw;
-		    findNeighbor(rtr_vec[curr_index]->router_id, if_name, &gw);
+		    printf("Calling findNeighbor for routerid %d\n", rtr_vec[curr_index]->router_id);
+		    int ret = findNeighbor(rtr_vec[curr_index]->router_id, if_name, &gw);
+		    if(!ret) {
+			printf("findNeighbor couldn't find neighbor - returned 0\n");
+			continue;
+		    }
 		    printf("Got neighbor from findNeighbor - %s, 0x%x\n", if_name, gw);
 		    //insert_shadow_node
 		    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, gw, if_name, 0);
