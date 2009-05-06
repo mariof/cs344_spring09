@@ -398,6 +398,13 @@ static int get_index(topo_router **rtr_vec, int n, uint32_t router_id) {
 static int get_min(const int *dist_vec, const int *tight_vec, int n) {
     int i, min_index = -1, min_dist = INT_MAX;
     for(i = 0; i < n; i++) {
+	if(!tight_vec[i]) {
+	    min_index = i;
+	    min_dist = dist_vec[i];
+	    break;
+	}
+    }
+    for(; i < n; i++) {
 	if(dist_vec[i] < min_dist && !tight_vec[i]) {
 	    min_index = i;
 	    min_dist = dist_vec[i];
