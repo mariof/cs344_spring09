@@ -399,6 +399,7 @@ void sendLSU(){
 		if(isEnabled(iface->ip)){
 			pthread_mutex_lock(&iface->neighbor_lock);
 			struct pwospf_neighbor* nbor = iface->neighbor_list;
+			if(nbor == NULL) advCnt++; // add one for end host (routerID:0) advertisement
 			while(nbor){
 				advCnt++;
 				nbor = nbor->next;
@@ -455,6 +456,11 @@ void sendLSU(){
 		if(isEnabled(iface->ip)){
 			pthread_mutex_lock(&iface->neighbor_lock);
 			struct pwospf_neighbor* nbor = iface->neighbor_list;
+			if(nbor == NULL){ // if there is no router connected, advertise routerID: 0 (i.e. end hosts)
+				*((uint32_t*)&packet[i]) = htonl(iface->ip & iface->netmask); i+=4; // subnet
+				*((uint32_t*)&packet[i]) = htonl(iface->netmask); i+=4; // mask
+				*((uint32_t*)&packet[i]) = htonl(0); i+=4; // router ID							
+			}
 			while(nbor){
 				*((uint32_t*)&packet[i]) = htonl(nbor->ip & iface->netmask); i+=4; // subnet
 				*((uint32_t*)&packet[i]) = htonl(iface->netmask); i+=4; // mask

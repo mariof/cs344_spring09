@@ -510,6 +510,9 @@ void cli_manip_ip_intf_set( gross_intf_t* data ) {
     if( intf ) {
     	pthread_rwlock_wrlock(&subsystem->if_lock);
     		struct pwospf_if *pw_if = findPWOSPFif(&subsystem->pwospf, intf->ip);
+    		if(subsystem->pwospf.routerID == pw_if->ip){
+    			subsystem->pwospf.routerID = data->ip;	// ideally this should be surrounded with a lock, but it will work this way (if we don't write to it anywhere else)
+    		}
     		pw_if->ip = data->ip;
     		pw_if->netmask = data->subnet_mask;
 			intf->ip = data->ip;
