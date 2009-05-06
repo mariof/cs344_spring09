@@ -571,6 +571,7 @@ void update_rtable()
 		u = get_min(dist_vec, tight_vec, n);
 		if(u < 0) {
 		    printf("get_min returned negative value...something's wrong - breaking out\n");
+		    break;
 		}
 		tight_vec[u] = 1;
 		if(dist_vec[u] == INT_MAX) continue;
