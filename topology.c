@@ -555,6 +555,7 @@ void update_rtable()
 	    adj_mat[i*n+j] = adj_mat[j*n+i] = max(adj_mat[i*n+j], adj_mat[j*n+i]);
 	}
     }
+    printf("Made the matrix symmetric\n");
 
     // run dijkstra's algo
     struct sr_instance* sr = get_sr();
@@ -584,6 +585,7 @@ void update_rtable()
 		    }
 		}
     }
+    printf("Ran Dijkstra's algo\n");
 
     // Sort vectors by distance - increasing order
     // simple bubble sort
@@ -610,6 +612,7 @@ void update_rtable()
     // For each router, reconstruct path
     rtableNode *shadow = NULL;
     for(i = 0; i < n; i++) {
+	printf("Reconstructing path for router %d\n", i);
 		if(i == s) {
 		    // I'm da ROUTER!
 		    // add all my subnets to the routing table
@@ -621,6 +624,7 @@ void update_rtable()
 				insert_shadow_node(&shadow, pif->ip, pif->netmask, 0, if_name, 0);
 				pif = pif->next;
 		    }
+		    printf("Built rtable for my neighbors\n");
  		    continue;
 		}
 
@@ -647,6 +651,7 @@ void update_rtable()
 			nbr = nbr->next;
 		}
     }
+    printf("Calling rebuild_rtable\n");
     rebuild_rtable(&(subsystem->rtable), shadow);
 
     // release all allocated memory
