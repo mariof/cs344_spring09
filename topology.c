@@ -629,8 +629,12 @@ void update_rtable()
 		}
 
 		int curr_index = i;
-		while(parent_vec[curr_index] != s && curr_index >= 0 && curr_index < n) {
+		while(parent_vec[curr_index] != s){// && curr_index >= 0 && curr_index < n) {
 		    curr_index = parent_vec[curr_index];
+		    if(curr_index < 0 || curr_index >= n) {
+			//disconnected node
+			break;
+		    }
 		}
 
 		if(curr_index < 0 || curr_index >= n) {
@@ -645,7 +649,7 @@ void update_rtable()
 		    //get if,gw info from pwospf
 		    char if_name[SR_NAMELEN];
 		    uint32_t gw;
-		    findNeighbor(rtr_vec[i]->router_id, if_name, &gw);
+		    findNeighbor(rtr_vec[curr_index]->router_id, if_name, &gw);
 		    //insert_shadow_node
 		    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, gw, if_name, 0);
 			nbr = nbr->next;
