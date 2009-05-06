@@ -669,7 +669,7 @@ int findNeighbor(uint32_t routerID, char* if_name, uint32_t *ip){
 				if(nbor->id == routerID){
 				    printf("findNeighbor: found matching neighbor\n");
 					*ip = nbor->ip;
-					strcpy(if_name, getIfName(nbor->ip));
+					strcpy(if_name, getIfName(iface->ip));
 					printf("findNeighbor: releasing locks and returning\n");
 					pthread_mutex_unlock(&iface->neighbor_lock);
 					pthread_rwlock_unlock(&subsystem->if_lock);	
