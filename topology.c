@@ -500,7 +500,7 @@ void update_rtable()
     int *parent_vec = malloc(sizeof(int)*n);
     int *tight_vec = malloc(sizeof(int)*n);
 
-    // fill rtr_vec, dist_vec, parent_vec, tight_vec
+    // fill rtr_vec, dist_vec, parent_vec, tight_vec, adj_mat
     int i, j;
     topo_router *cur_rtr = topo_head;
 
@@ -509,21 +509,19 @@ void update_rtable()
 		dist_vec[i] = INT_MAX;
 		parent_vec[i] = -1;
 		tight_vec[i] = 0;
+	for(j = 0; j < n; j++) {
+		adj_mat[i*n+j] = INT_MAX;
+	}
     }
 
     // fill adj_mat
     for(i = 0, cur_rtr = topo_head; i < n && cur_rtr != NULL; i++, cur_rtr = cur_rtr->next) {
 	lsu_ad *cur_ad = cur_rtr->ads;
-	for(j = 0; j < n; j++) {
-	    if(cur_ad == NULL) {
-		adj_mat[i*n+j] = INT_MAX;
-		continue;
+	for(j = 0; j < n && cur_ad != NULL; j++) {
+	    while(cur_ad->router_id < rtr_vec[j]->router_id) {
+		cur_ad = cur_ad->next;
 	    }
-	    if(cur_ad->router_id != rtr_vec[j]->router_id) {
-		adj_mat[i*n+j] = INT_MAX;
-		continue;
-	    }
-	    else if(cur_ad->router_id == rtr_vec[j]->router_id) {
+	    if(cur_ad->router_id == rtr_vec[j]->router_id) {
 		adj_mat[i*n+j] = 1;
 		cur_ad = cur_ad->next;
 	    }
