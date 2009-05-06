@@ -555,7 +555,7 @@ void update_rtable()
 	    adj_mat[i*n+j] = adj_mat[j*n+i] = max(adj_mat[i*n+j], adj_mat[j*n+i]);
 	}
     }
-    printf("Made the matrix symmetric\n");
+    //printf("Made the matrix symmetric\n");
 
     // run dijkstra's algo
     struct sr_instance* sr = get_sr();
@@ -585,7 +585,7 @@ void update_rtable()
 		    }
 		}
     }
-    printf("Ran Dijkstra's algo\n");
+    //printf("Ran Dijkstra's algo\n");
 
     // Sort vectors by distance - increasing order
     // simple bubble sort
@@ -612,7 +612,7 @@ void update_rtable()
     // For each router, reconstruct path
     rtableNode *shadow = NULL;
     for(i = 0; i < n; i++) {
-	printf("Reconstructing path for router %d\n", i);
+	//printf("Reconstructing path for router %d\n", i);
 		if(i == s) {
 		    // I'm da ROUTER!
 		    // add all my subnets to the routing table
@@ -624,7 +624,7 @@ void update_rtable()
 				insert_shadow_node(&shadow, pif->ip, pif->netmask, 0, if_name, 0);
 				pif = pif->next;
 		    }
-		    printf("Built rtable for my neighbors\n");
+		    //printf("Built rtable for my neighbors\n");
  		    continue;
 		}
 
@@ -641,7 +641,7 @@ void update_rtable()
 		    //disconnected node
 		    continue;
 		}
-		printf("curr_index = %d\n", curr_index);
+		//printf("curr_index = %d\n", curr_index);
 
 		//curr_index is the index of the gateway router
 		//add all subnets advertised by it to the routing table
@@ -650,35 +650,35 @@ void update_rtable()
 		    //get if,gw info from pwospf
 		    char if_name[SR_NAMELEN];
 		    uint32_t gw;
-		    printf("Calling findNeighbor for routerid %d\n", rtr_vec[curr_index]->router_id);
+		    //printf("Calling findNeighbor for routerid %d\n", rtr_vec[curr_index]->router_id);
 		    int ret = findNeighbor(rtr_vec[curr_index]->router_id, if_name, &gw);
 		    if(!ret) {
-			printf("findNeighbor couldn't find neighbor - returned 0\n");
+			//printf("findNeighbor couldn't find neighbor - returned 0\n");
 			nbr = nbr->next;
 			continue;
 		    }
-		    printf("Got neighbor from findNeighbor - %s, 0x%x\n", if_name, gw);
+		    //printf("Got neighbor from findNeighbor - %s, 0x%x\n", if_name, gw);
 		    //insert_shadow_node
 		    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, gw, if_name, 0);
-		    printf("called insert_shadow_node\n");
+		    //printf("called insert_shadow_node\n");
 			nbr = nbr->next;
 		}
     }
-    printf("Calling rebuild_rtable\n");
+    //printf("Calling rebuild_rtable\n");
     rebuild_rtable(&(subsystem->rtable), shadow);
 
     // release all allocated memory
-    printf("free 1\n");
+    //printf("free 1\n");
     free(adj_mat);
-    printf("free 2\n");
+    //printf("free 2\n");
     free(rtr_vec);
-    printf("free 3\n");
+    //printf("free 3\n");
     free(dist_vec);
-    printf("free 4\n");
+    //printf("free 4\n");
     free(parent_vec);
-    printf("free 5\n");
+    //printf("free 5\n");
     free(tight_vec);
-    printf("free 6\n");
+    //printf("free 6\n");
 
     //release lock
     pthread_mutex_unlock(&topo_lock);
