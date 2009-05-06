@@ -329,6 +329,7 @@ int update_lsu(topo_router *adj_list)
 	    // No change!
 	    // just update the last received sequence number
 	    rtr->last_seq = adj_list->last_seq;
+		rtr->last_update_time = adj_list->last_update_time;
 	    rtr = adj_list;
 	    ret = 0;
 	}
@@ -529,8 +530,22 @@ void update_rtable()
 	}
     }
 
+    // print topology
+    printf("**********************************************\n");
+	topo_router *p_router = topo_head;
+	while(p_router){
+		printf("%d:: ", p_router->router_id);
+		lsu_ad *p_ad = p_router->ads;
+		while(p_ad){
+			printf("%d ", p_ad->router_id);
+			p_ad = p_ad->next;
+		}
+		printf("\n");
+		p_router = p_router->next;
+	}
+    printf("**********************************************\n");
+
     // print adj_mat
-  	
     printf("----------------------------------------------\n");
     printf("----------------------------------------------\n");
     for(i = 0, cur_rtr = topo_head; i < n; i++, cur_rtr = cur_rtr->next) {
