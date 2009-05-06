@@ -654,6 +654,7 @@ void update_rtable()
 		    int ret = findNeighbor(rtr_vec[curr_index]->router_id, if_name, &gw);
 		    if(!ret) {
 			printf("findNeighbor couldn't find neighbor - returned 0\n");
+			nbr = nbr->next;
 			continue;
 		    }
 		    printf("Got neighbor from findNeighbor - %s, 0x%x\n", if_name, gw);
