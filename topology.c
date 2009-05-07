@@ -513,6 +513,7 @@ void update_rtable()
 		adj_mat[i*n+j] = INT_MAX;
 	}
     }
+    printf("Initialized variables\n");
 
     // fill adj_mat
     for(i = 0, cur_rtr = topo_head; i < n && cur_rtr != NULL; i++, cur_rtr = cur_rtr->next) {
