@@ -517,11 +517,15 @@ void update_rtable()
 
     // fill adj_mat
     for(i = 0, cur_rtr = topo_head; i < n && cur_rtr != NULL; i++, cur_rtr = cur_rtr->next) {
+	printf("populating adj_mat: i = %d\n", i);
 	lsu_ad *cur_ad = cur_rtr->ads;
 	for(j = 0; j < n && cur_ad != NULL; j++) {
-	    while(cur_ad->router_id < rtr_vec[j]->router_id) {
+	    printf("populating adj_mat: j = %d\n", j);
+	    while(cur_ad != NULL && cur_ad->router_id < rtr_vec[j]->router_id) {
 		cur_ad = cur_ad->next;
 	    }
+	    if(cur_ad == NULL)
+		break;
 	    if(cur_ad->router_id == rtr_vec[j]->router_id) {
 		adj_mat[i*n+j] = 1;
 		cur_ad = cur_ad->next;
