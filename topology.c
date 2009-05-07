@@ -582,7 +582,7 @@ void update_rtable()
     int s = get_index((topo_router**)rtr_vec, n, subsystem->pwospf.routerID); // source router
     if(s < 0 || s >= n) {
 		printf("Failed to get index of myself...something's wrong!\n");
-		exit(1);
+		return;
     }
     dist_vec[s] = 0;
     parent_vec[s] = s;
@@ -631,7 +631,7 @@ void update_rtable()
     rtableNode *shadow = NULL;
     for(i = 0; i < n; i++) {
 	//printf("Reconstructing path for router %d\n", i);
-		if(i == s) {
+		if(rtr_vec[i]->router_id == subsystem->pwospf.routerID) {
 		    // I'm da ROUTER!
 		    // add all my subnets to the routing table
 		    struct pwospf_if *pif = subsystem->pwospf.if_list;
@@ -662,24 +662,23 @@ void update_rtable()
 		//printf("curr_index = %d\n", curr_index);
 
 		//curr_index is the index of the gateway router
-		//add all subnets advertised by it to the routing table
+		//add all subnets advertised by the router i to the routing table
+		char if_name[SR_NAMELEN];
+		uint32_t gw;
+		//printf("Calling findNeighbor for routerid %d\n", rtr_vec[curr_index]->router_id);
+		int ret = findNeighbor(rtr_vec[curr_index]->router_id, if_name, &gw);
+		if(!ret) {
+		    printf("findNeighbor couldn't find neighbor %d- returned 0\n", rtr_vec[curr_index]->router_id);
+		    continue;
+		}
 		lsu_ad *nbr = rtr_vec[i]->ads;
 		while(nbr != NULL) {
 		    //get if,gw info from pwospf
-		    char if_name[SR_NAMELEN];
-		    uint32_t gw;
-		    //printf("Calling findNeighbor for routerid %d\n", rtr_vec[curr_index]->router_id);
-		    int ret = findNeighbor(rtr_vec[curr_index]->router_id, if_name, &gw);
-		    if(!ret) {
-			//printf("findNeighbor couldn't find neighbor - returned 0\n");
-			nbr = nbr->next;
-			continue;
-		    }
 		    //printf("Got neighbor from findNeighbor - %s, 0x%x\n", if_name, gw);
 		    //insert_shadow_node
 		    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, gw, if_name, 0);
 		    //printf("called insert_shadow_node\n");
-			nbr = nbr->next;
+		    nbr = nbr->next;
 		}
     }
     //printf("Calling rebuild_rtable\n");
