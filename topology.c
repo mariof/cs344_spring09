@@ -513,14 +513,14 @@ void update_rtable()
 		adj_mat[i*n+j] = INT_MAX;
 	}
     }
-    printf("Initialized variables\n");
+    //printf("Initialized variables\n");
 
     // fill adj_mat
     for(i = 0, cur_rtr = topo_head; i < n && cur_rtr != NULL; i++, cur_rtr = cur_rtr->next) {
-	printf("populating adj_mat: i = %d\n", i);
+	//printf("populating adj_mat: i = %d\n", i);
 	lsu_ad *cur_ad = cur_rtr->ads;
 	for(j = 0; j < n && cur_ad != NULL; j++) {
-	    printf("populating adj_mat: j = %d\n", j);
+	    //printf("populating adj_mat: j = %d\n", j);
 	    while(cur_ad != NULL && cur_ad->router_id < rtr_vec[j]->router_id) {
 		cur_ad = cur_ad->next;
 	    }
