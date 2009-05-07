@@ -727,8 +727,54 @@ void addMeToTopology(){
 		
 		pthread_mutex_lock(&pif->neighbor_lock);
 		struct pwospf_neighbor *nbr = pif->neighbor_list;
+		while(nbr == NULL){ // no neighbors
+			lsu_ad *node = (lsu_ad*)malloc(sizeof(lsu_ad));
+			node->subnet = pif->ip & pif->netmask;
+			node->mask = pif->netmask;
+			node->router_id = 0;
+			node->next = NULL;
+			node->prev = NULL;
+				
+			advCnt++;
+						
+			if(head->ads == NULL){
+				head->ads = node;
+				break;
+			}
+			
+			// insert node into sorted list
+			lsu_ad *tmp = head->ads;
+			while(tmp){
+				if(node->router_id < tmp->router_id) break;
+				tmp = tmp->next;
+			}
+			if(tmp==NULL){ // find last list element and insert after it
+				tmp = head->ads;
+				while(tmp){
+					if(tmp->next){
+						tmp = tmp->next;
+					}
+					else{
+						break;
+					}
+				}
+				tmp->next = node;
+				node->prev = tmp;
+			}
+			else if(tmp->prev == NULL){ // insert before first element
+				node->next = tmp;
+				tmp->prev = node;
+				head->ads = node;
+			}
+			else{
+				node->next = tmp;
+				node->prev = tmp->prev;
+				tmp->prev->next = node;
+				tmp->prev = node;
+			}
+			break;
+		}
 		while(nbr){
-
 			lsu_ad *node = (lsu_ad*)malloc(sizeof(lsu_ad));
 			node->subnet = nbr->ip & pif->netmask;
 			node->mask = pif->netmask;
