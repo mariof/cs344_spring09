@@ -29,21 +29,21 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
 
     //scan the list until you hit the right netmask
     rtableNode *cnode = *head;
-    if(netmask > cnode->netmask || (netmask == cnode->netmask && ip > cnode->ip)) {
+    if(netmask > cnode->netmask || (netmask == cnode->netmask && (ip&netmask) > (cnode->ip&cnode->netmask))) {
 	*head = node;
 	node->next = cnode;
 	cnode->prev = node;
     }
     else {
 	while(cnode->next != NULL) {
-	    if(netmask > cnode->next->netmask || (netmask == cnode->next->netmask && ip > cnode->next->ip)) {
+	    if(netmask > cnode->next->netmask || (netmask == cnode->next->netmask && (ip&netmask) > (cnode->next->ip&cnode->next->netmask))) {
 		break;
 	    }
 	    cnode = cnode->next;
 	}
 
 	//check for equality to prevent adding duplicate nodes
-	if((cnode->ip == ip) && (cnode->netmask == netmask) && (cnode->is_static == is_static)) {
+	if((cnode->ip&cnode->netmask) == (ip&netmask) && (cnode->is_static == is_static)) {
 	    cnode->gateway = gateway;
 	    strcpy(cnode->output_if, output_if);
 	    free(node);
@@ -230,21 +230,21 @@ void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
 
 	//scan the list until you hit the right netmask
 	rtableNode *cnode = *head;
-	if(node->netmask > cnode->netmask || (node->netmask == cnode->netmask && node->ip > cnode->ip)) {
+	if(node->netmask > cnode->netmask || (node->netmask == cnode->netmask && (node->ip & node->netmask) > (cnode->ip & cnode->netmask))) {
 	    *head = node;
 	    node->next = cnode;
 	    cnode->prev = node;
 	}
 	else {
 	    while(cnode->next != NULL) {
-		if(node->netmask > cnode->next->netmask || (node->netmask == cnode->next->netmask && node->ip > cnode->next->ip)) {
+		if(node->netmask > cnode->next->netmask || (node->netmask == cnode->next->netmask && (node->ip & node->netmask) > (cnode->next->ip & cnode->next->netmask))) {
 		    break;
 		}
 		cnode = cnode->next;
 	    }
 
 	    //check for equality to prevent adding duplicate nodes
-	    if((cnode->ip == node->ip) && ((uint8_t)cnode->netmask == (uint8_t)node->netmask) && (cnode->is_static == node->is_static)) {
+	    if(((cnode->ip & cnode->netmask) == (node->ip & node->netmask)) && (cnode->is_static == node->is_static)) {
 		cnode->gateway = node->gateway;
 		strcpy(cnode->output_if, node->output_if);
 		free(node);

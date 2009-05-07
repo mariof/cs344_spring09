@@ -448,21 +448,21 @@ static void insert_shadow_node(rtableNode **head, uint32_t ip, uint32_t netmask,
 
     //scan the list until you hit the right netmask
     rtableNode *cnode = *head;
-    if(netmask > cnode->netmask || (netmask == cnode->netmask && ip > cnode->ip)) {
+    if(netmask > cnode->netmask || (netmask == cnode->netmask && (ip & netmask) > (cnode->ip & cnode->netmask))) {
 	*head = node;
 	node->next = cnode;
 	cnode->prev = node;
     }
     else {
 	while(cnode->next != NULL) {
-	    if(netmask > cnode->next->netmask || (netmask == cnode->next->netmask && ip > cnode->next->ip)) {
+	    if(netmask > cnode->next->netmask || (netmask == cnode->next->netmask && (ip & netmask) > (cnode->next->ip & cnode->next->netmask))) {
 		break;
 	    }
 	    cnode = cnode->next;
 	}
 
 	//check for equality to prevent adding duplicate nodes
-	if(((cnode->ip)&(cnode->netmask)) == (ip&netmask)) {
+	if((cnode->ip & cnode->netmask) == (ip & netmask)) {
 	    free(node);
 	    return;
 	}
