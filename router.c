@@ -219,8 +219,10 @@ void processPacket(struct sr_instance* sr,
 			if (if_mac){
 				dbgMsg("IP match found, need to send ARP response");				
 				uint8_t* arpReply = generateARPreply(packet, len, if_mac);
-				sr_integ_low_level_output(sr, arpReply, 60, interface);
-				free(arpReply);
+				if(arpReply) {
+				    sr_integ_low_level_output(sr, arpReply, 60, interface);
+				    free(arpReply);
+				}
 			}    	
     	}
     	else if (arpPacket[6] == 0 && arpPacket[7] == 2){

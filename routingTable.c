@@ -101,14 +101,20 @@ void del_route_type(rtableNode **head, int is_static)
     rtableNode *node = *head;
     while(node != NULL) {
 	if(node->is_static == is_static) {
+	    rtableNode *nxt_node = node->next;
 	    //delete node
 	    if(node->prev != NULL) {
 		(node->prev)->next = node->next;
+	    }
+	    else {
+		*head = node->next;
 	    }
 	    if(node->next != NULL) {
 		(node->next)->prev = node->prev;
 	    }
 	    free(node);
+	    node = nxt_node;
+	    continue;
 	}
 	node = node->next;
     }
@@ -202,14 +208,20 @@ void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
     rtableNode *node = *head;
     while(node != NULL) {
 	if(node->is_static == is_static) {
+	    rtableNode *nxt_node = node->next;
 	    //delete node
 	    if(node->prev != NULL) {
 		(node->prev)->next = node->next;
+	    }
+	    else {
+		*head = node->next;
 	    }
 	    if(node->next != NULL) {
 		(node->next)->prev = node->prev;
 	    }
 	    free(node);
+	    node = nxt_node;
+	    continue;
 	}
 	node = node->next;
     }
@@ -224,6 +236,7 @@ void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
 	//Check if the list is empty
 	if(*head == NULL) {
 	    (*head) = node;
+	    node->next = NULL;
 	    node = nxt_node;
 	    continue;
 	}
