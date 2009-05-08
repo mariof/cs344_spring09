@@ -114,10 +114,15 @@ void processPacket(struct sr_instance* sr,
 
 	// find the interface with target IP
 	uint32_t myIP = 0;
+	int is_broadcast = 0;
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		myIP = subsystem->ifaces[i].ip; // host byte order
 		if(myIP == dstIP) break;
+		if(( myIP | (~subsystem->ifaces[i].mask) ) == dstIP){ // broadcast IP address
+			is_broadcast = 1;
+			break;
+		}
 	}
 	pthread_rwlock_unlock(&subsystem->if_lock);
 
@@ -136,6 +141,9 @@ void processPacket(struct sr_instance* sr,
 			dbgMsg("Transport Protocol not supported");
 			sendICMPDestinationUnreachable(interface, packet, len, 2);
 	    }
+	}
+	else if (is_broadcast){ // broadcast IP
+		// nothing to do really, ignoring all packets
 	}
 	else if (dstIP == ntohl(ALLSPFRouters)){
 	    if(ipPacket[9] == 89){ // OSPF
@@ -809,7 +817,11 @@ void writeIPfilter(){
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, htonl(subsystem->ifaces[i].ip));
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
 	}
-	for(i = subsystem->num_ifaces; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH ; i++){
+	// write 224.0.0.5
+	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, ALLSPFRouters);
+	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
+	i++;
+	for(; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH ; i++){
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, 0);
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
 	}
