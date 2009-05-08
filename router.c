@@ -112,20 +112,6 @@ void processPacket(struct sr_instance* sr,
 	    ipPacket[19] * 1; 
 	dstIP = ntohl(dstIP); // dstIP in hbo
 
-	nextHopIP = gw_match(&(subsystem->rtable), dstIP); //nextHopIP in hbo
-	if(!nextHopIP) {
-	    errorMsg("Destination network unreachable. Dropping packet");
-	    sendICMPDestinationUnreachable(interface, packet, len, 0);
-	    return;
-	}
-
-	out_if = lp_match(&(subsystem->rtable), dstIP); //output interface
-	if(!out_if) {
-	    errorMsg("Destination network unreachable. Dropping packet");
-	    sendICMPDestinationUnreachable(interface, packet, len, 0);
-	    return;
-	}
-
 	// find the interface with target IP
 	uint32_t myIP = 0;
 	pthread_rwlock_rdlock(&subsystem->if_lock);
@@ -159,6 +145,20 @@ void processPacket(struct sr_instance* sr,
 	
 	else{
 		ttl = ipPacket[8];
+
+		nextHopIP = gw_match(&(subsystem->rtable), dstIP); //nextHopIP in hbo
+		if(!nextHopIP) {
+		    errorMsg("Destination network unreachable. Dropping packet");
+		    sendICMPDestinationUnreachable(interface, packet, len, 0);
+		    return;
+		}
+
+		out_if = lp_match(&(subsystem->rtable), dstIP); //output interface
+		if(!out_if) {
+		    errorMsg("Destination network unreachable. Dropping packet");
+		    sendICMPDestinationUnreachable(interface, packet, len, 0);
+		    return;
+		}
 
 		// check TTL
 		if(ttl <= 1) {
