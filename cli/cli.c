@@ -793,9 +793,9 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	pthread_mutex_lock(&ifRegLock);
 	
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_0_PHY_STATUS, &stat[0]);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO_REG, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_0_STATUS_REG, &stat[0]);
 	mac[0][0] = (mac_hi >> 8) & 0xFF;
 	mac[0][1] = (mac_hi) & 0xFF;
 	mac[0][2] = (mac_lo >> 24) & 0xFF;
@@ -803,9 +803,9 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 	mac[0][4] = (mac_lo >> 8) & 0xFF;
 	mac[0][5] = (mac_lo) & 0xFF;
 
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_1_PHY_STATUS, &stat[1]);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO_REG, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_1_STATUS_REG, &stat[1]);
 	mac[1][0] = (mac_hi >> 8) & 0xFF;
 	mac[1][1] = (mac_hi) & 0xFF;
 	mac[1][2] = (mac_lo >> 24) & 0xFF;
@@ -813,9 +813,9 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 	mac[1][4] = (mac_lo >> 8) & 0xFF;
 	mac[1][5] = (mac_lo) & 0xFF;
 
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_2_PHY_STATUS, &stat[2]);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO_REG, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_2_STATUS_REG, &stat[2]);
 	mac[2][0] = (mac_hi >> 8) & 0xFF;
 	mac[2][1] = (mac_hi) & 0xFF;
 	mac[2][2] = (mac_lo >> 24) & 0xFF;
@@ -823,9 +823,9 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 	mac[2][4] = (mac_lo >> 8) & 0xFF;
 	mac[2][5] = (mac_lo) & 0xFF;
 
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_3_PHY_STATUS, &stat[3]);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO_REG, &mac_lo);
+	readReg(&netFPGA, MDIO_PHY_3_STATUS_REG, &stat[3]);
 	mac[3][0] = (mac_hi >> 8) & 0xFF;
 	mac[3][1] = (mac_hi) & 0xFF;
 	mac[3][2] = (mac_lo >> 24) & 0xFF;
@@ -866,10 +866,10 @@ void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, uns
 
 	pthread_mutex_lock(&arpRegLock);
 	for(i = 0; i < ROUTER_OP_LUT_ARP_TABLE_DEPTH; i++){	
-		writeReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_RD_ADDR, i);
-		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, &ip);	
-		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, &mac_hi);	
-		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, &mac_lo);	
+		writeReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_RD_ADDR_REG, i);
+		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_NEXT_HOP_IP_REG, &ip);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_HI_REG, &mac_hi);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_LO_REG, &mac_lo);	
 		
 		int2byteIP(ntohl(ip), strIP);
 		mac[0] = (mac_hi >> 8) & 0xFF;
@@ -902,8 +902,8 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	pthread_mutex_lock(&filtRegLock);
 	for(i = 0; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH; i++){	
-		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_RD_ADDR, i);
-		readReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, &val);	
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_RD_ADDR_REG, i);
+		readReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, &val);	
 		
 		if(val != 0){
 			uint8_t ip[4];
@@ -930,11 +930,11 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 
 	pthread_mutex_lock(&routeRegLock);
 	for(i = 0; i < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH; i++){	
-		writeReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_RD_ADDR, i);
-		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_0, &subnet);	
-		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, &mask);	
-		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, &gw);	
-		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, &ifs);	
+		writeReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_RD_ADDR_REG, i);
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_IP_REG, &subnet);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_MASK_REG, &mask);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, &gw);	
+		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, &ifs);	
 		
 		int2byteIP(ntohl(subnet & mask), strSubnet);
 		int2byteIP(ntohl(mask), strMask);

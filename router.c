@@ -814,16 +814,16 @@ void writeIPfilter(){
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	
 	for(i = 0; i < subsystem->num_ifaces; i++){
-		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, htonl(subsystem->ifaces[i].ip));
-		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, htonl(subsystem->ifaces[i].ip));
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG, i);
 	}
 	// write 224.0.0.5
-	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, ALLSPFRouters);
-	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
+	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, ALLSPFRouters);
+	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG, i);
 	i++;
 	for(; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH ; i++){
-		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY, 0);
-		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR, i);
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, 0);
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG, i);
 	}
 
 	pthread_rwlock_unlock(&subsystem->if_lock);
@@ -851,10 +851,10 @@ void writeARPCache(arpTreeNode *node, int *index){
 
 	if(*index < ROUTER_OP_LUT_ARP_TABLE_DEPTH){
 		pthread_mutex_lock(&arpRegLock);
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, htonl(node->ip) );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, mac_hi );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, mac_lo );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR, (*index)++ );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_NEXT_HOP_IP_REG, htonl(node->ip) );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_HI_REG, mac_hi );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_LO_REG, mac_lo );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR_REG, (*index)++ );
 		pthread_mutex_unlock(&arpRegLock);
 	}
     if(node->right) writeARPCache(node->right, index);
@@ -876,8 +876,8 @@ void writeRoutingTable(){
 
 	pthread_mutex_lock(&ifRegLock);
 	
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO, &mac_lo);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO_REG, &mac_lo);
 	mac[0][0] = (mac_hi >> 8) & 0xFF;
 	mac[0][1] = (mac_hi) & 0xFF;
 	mac[0][2] = (mac_lo >> 24) & 0xFF;
@@ -885,8 +885,8 @@ void writeRoutingTable(){
 	mac[0][4] = (mac_lo >> 8) & 0xFF;
 	mac[0][5] = (mac_lo) & 0xFF;
 
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO, &mac_lo);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO_REG, &mac_lo);
 	mac[1][0] = (mac_hi >> 8) & 0xFF;
 	mac[1][1] = (mac_hi) & 0xFF;
 	mac[1][2] = (mac_lo >> 24) & 0xFF;
@@ -894,8 +894,8 @@ void writeRoutingTable(){
 	mac[1][4] = (mac_lo >> 8) & 0xFF;
 	mac[1][5] = (mac_lo) & 0xFF;
 
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO, &mac_lo);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO_REG, &mac_lo);
 	mac[2][0] = (mac_hi >> 8) & 0xFF;
 	mac[2][1] = (mac_hi) & 0xFF;
 	mac[2][2] = (mac_lo >> 24) & 0xFF;
@@ -903,8 +903,8 @@ void writeRoutingTable(){
 	mac[2][4] = (mac_lo >> 8) & 0xFF;
 	mac[2][5] = (mac_lo) & 0xFF;
 
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI, &mac_hi);
-	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO, &mac_lo);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO_REG, &mac_lo);
 	mac[3][0] = (mac_hi >> 8) & 0xFF;
 	mac[3][1] = (mac_hi) & 0xFF;
 	mac[3][2] = (mac_lo >> 24) & 0xFF;
@@ -920,9 +920,9 @@ void writeRoutingTable(){
 	while(rtable){
 		uint32_t ifs = 0;
 		if(index < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH){
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_0, htonl(rtable->ip) );
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, htonl(rtable->netmask) );
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, htonl(rtable->gateway) );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_IP_REG, htonl(rtable->ip) );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_MASK_REG, htonl(rtable->netmask) );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, htonl(rtable->gateway) );
 			
 			char *name;
 			name = getIfNameFromMAC(&mac[3][0]);
@@ -934,8 +934,8 @@ void writeRoutingTable(){
 			name = getIfNameFromMAC(&mac[0][0]);
 			if(name) ifs |= 0x01 * ( strcmp(name, rtable->output_if) == 0 );
 			
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, ifs );
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR, index++ );		
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, ifs );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR_REG, index++ );		
 		}
 		else{
 			break;
@@ -944,11 +944,11 @@ void writeRoutingTable(){
 	}
 	// fill the rest of the table with 0s
 	for(i = index; i < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH; i++){
-		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_0, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_1, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_2, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_3, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR, i );		
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_IP_REG, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_MASK_REG, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR_REG, i );		
 	}
 	
 	pthread_mutex_unlock(&routeRegLock);

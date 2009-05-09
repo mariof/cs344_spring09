@@ -122,17 +122,17 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 			mac_lo[i] |= ((unsigned int)mac_addr[4]) << 8;
 			mac_lo[i] |= ((unsigned int)mac_addr[5]);
 		}
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI, mac_hi[0]);
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO, mac_lo[0]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI_REG, mac_hi[0]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO_REG, mac_lo[0]);
 
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI, mac_hi[1]);
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO, mac_lo[1]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI_REG, mac_hi[1]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO_REG, mac_lo[1]);
 
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI, mac_hi[2]);
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO, mac_lo[2]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI_REG, mac_hi[2]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO_REG, mac_lo[2]);
 
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI, mac_hi[3]);
-		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO, mac_lo[3]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI_REG, mac_hi[3]);
+		writeReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO_REG, mac_lo[3]);
 		
 	pthread_rwlock_unlock(&subsystem->if_lock);
 	pthread_mutex_unlock(&ifRegLock);

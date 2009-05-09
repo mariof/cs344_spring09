@@ -290,10 +290,10 @@ void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree){
 
 	pthread_mutex_lock(&arpRegLock);
 	for(i = index; i < ROUTER_OP_LUT_ARP_TABLE_DEPTH; i++){
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_0, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_1, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_2, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR, index++ );	
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_NEXT_HOP_IP_REG, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_HI_REG, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_LO_REG, 0 );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR_REG, index++ );	
 	}
 	pthread_mutex_unlock(&arpRegLock);
 #endif // _CPUMODE_
