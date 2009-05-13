@@ -14,6 +14,7 @@ void arpInsert(arpNode **head, uint32_t ip, uint8_t *mac, int is_static){
 	n->is_static = is_static;
 	n->next = n->prev = NULL;
 
+	// find existing entry
 	arpNode *tmp = arpFindIP(*head, ip);
 	if(tmp){
 	 	if (is_static || (!(tmp->is_static)) ){
@@ -25,6 +26,7 @@ void arpInsert(arpNode **head, uint32_t ip, uint8_t *mac, int is_static){
 		}
 	}
 	
+	// add new entry
 	pthread_mutex_lock(&list_lock);
 
 	if (*head == NULL){
@@ -177,6 +179,9 @@ int arpTimeout(arpNode **head){
 			else
 				cur = *head;
 							
+		}
+		else if((!cur->is_static) && ( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT-1 )){ // preemptive arp request
+			sendARPrequest(get_sr(), getIfName(cur->ip), cur->ip);
 		}	
 		if(cur) cur = cur->next;
 	}
@@ -271,32 +276,51 @@ void arpDestroyTree(arpTreeNode *root){
 	free(root);
 }
 
+// compares trees, caller should hold any necessary locks on trees
+// returns 1 if trees are the same, 0 otherwise
+int arpCompareTrees(arpTreeNode *treeA, arpTreeNode *treeB){
+	int i;
+
+	if(treeA == NULL && treeB == NULL) return 1;
+	if(treeA == NULL || treeB == NULL) return 0;
+	
+	for(i = 0; i < 6; i++) if(treeA->mac[i] != treeB->mac[i]) return 0;
+	if(treeA->ip != treeB->ip) return 0;
+
+	return arpCompareTrees(treeA->left, treeB->left) && arpCompareTrees(treeA->right, treeB->right);
+}
+
 // replaces old tree with a new one in a thread safe fashion
 // replace with NULL to destroy tree
 void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree){
-	arpTreeNode *oldTree = *root;
 	pthread_rwlock_wrlock(&tree_lock);
+	arpTreeNode *oldTree = *root;
 	*root = newTree;
 	pthread_rwlock_unlock(&tree_lock);
-	if(oldTree) arpDestroyTree(oldTree);
 
 #ifdef _CPUMODE_
-	int index = 0;
-	int i;
-	
 	pthread_rwlock_rdlock(&tree_lock);
-		writeARPCache(newTree, &index);
-	pthread_rwlock_unlock(&tree_lock);
+	if(!arpCompareTrees(oldTree, newTree)){
+		int index = 0;
+		int i;
+		
+		pthread_rwlock_rdlock(&tree_lock);
+			writeARPCache(newTree, &index);
+		pthread_rwlock_unlock(&tree_lock);
 
-	pthread_mutex_lock(&arpRegLock);
-	for(i = index; i < ROUTER_OP_LUT_ARP_TABLE_DEPTH; i++){
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_NEXT_HOP_IP_REG, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_HI_REG, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_LO_REG, 0 );
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR_REG, index++ );	
+		pthread_mutex_lock(&arpRegLock);
+		for(i = index; i < ROUTER_OP_LUT_ARP_TABLE_DEPTH; i++){
+			writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_NEXT_HOP_IP_REG, 0 );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_HI_REG, 0 );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_LO_REG, 0 );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR_REG, index++ );	
+		}
+		pthread_mutex_unlock(&arpRegLock);
 	}
-	pthread_mutex_unlock(&arpRegLock);
+	pthread_rwlock_unlock(&tree_lock);
 #endif // _CPUMODE_
+
+	if(oldTree) arpDestroyTree(oldTree);
 
 }
 

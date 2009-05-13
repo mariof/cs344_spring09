@@ -35,10 +35,10 @@ pthread_mutex_t routeRegLock;
 #define ICMP_HEADER_LENGTH 4
 #define OSPF_HEADER_LENGTH 24
 
-#define ARP_CACHE_REFRESH 2
-#define ARP_QUEUE_REFRESH 2
-#define PING_LIST_REFRESH 2
-#define TOPO_REFRESH 2
+#define ARP_CACHE_REFRESH 1
+#define ARP_QUEUE_REFRESH 1
+#define PING_LIST_REFRESH 1
+#define TOPO_REFRESH 1
 
 
 struct sr_router{

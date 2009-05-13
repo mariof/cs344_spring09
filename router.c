@@ -535,7 +535,7 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	if (subsystem->ifaces[i].enabled == 0){
-		//errorMsg("Given interfaces is disabled");
+		//errorMsg("Given interface is disabled");
 		pthread_rwlock_unlock(&subsystem->if_lock);
 		return;		
 	}			

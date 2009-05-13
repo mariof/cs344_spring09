@@ -1,6 +1,6 @@
 #include <sys/time.h>
 
-#define PING_LIST_TIMEOUT 3
+#define PING_LIST_TIMEOUT 1
 
 void processICMP(const char* interface, const uint8_t* packet, unsigned len);
 void processEchoReply(const uint8_t* packet, unsigned len);
