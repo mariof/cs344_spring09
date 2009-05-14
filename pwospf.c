@@ -177,7 +177,8 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 	}
 
 	// check AREA ID
-	uint32_t areaID = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8]));
+	uint32_t areaID = byte2intIP(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8]);
+//	uint32_t areaID = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8]));
 	if(areaID != subsystem->pwospf.areaID){
 		errorMsg("OSPF areaID missmatch! Dropping the packet.");
 		return;
@@ -196,7 +197,8 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 					 packet[ETHERNET_HEADER_LENGTH + 15] * 1;    				
     srcIP = ntohl(srcIP);
 
-	uint32_t routerID = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4]));
+	uint32_t routerID = byte2intIP(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4]);
+//	uint32_t routerID = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4]));
 
     // process packet
 	if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 1] == 1){ // Hello packet
@@ -205,7 +207,8 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 		pthread_rwlock_rdlock(&subsystem->if_lock);	
 	
 		// check NETMASK
-		uint32_t netmask = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH]));
+		uint32_t netmask = byte2intIP(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH]);
+//		uint32_t netmask = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH]));
 		if(netmask != iface->netmask) {
 		    errorMsg("OSPF netmask missmatch! Dropping the packet.");
 			pthread_rwlock_unlock(&subsystem->if_lock);	
@@ -213,7 +216,8 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 		}
 		
 		// check HELLOINT
-		uint16_t helloint = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]));
+		uint16_t helloint = byte2intShort(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]);
+//		uint16_t helloint = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]));
 		if(helloint != iface->helloint) {
 		    errorMsg("OSPF helloint missmatch! Dropping the packet.");
 			pthread_rwlock_unlock(&subsystem->if_lock);	
@@ -258,8 +262,10 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 			return;
 		}
 
-		uint16_t seqNum = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH]));
-		uint32_t advNum = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]));
+		uint16_t seqNum = byte2intShort(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH]);
+		uint32_t advNum = byte2intIP(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]);
+//		uint16_t seqNum = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH]));
+//		uint32_t advNum = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]));
 
 		// if router is not in the list, get_last_seq returns -1, which will always be less than seqNum
 		if((int)seqNum <= get_last_seq(routerID)){
@@ -286,9 +292,12 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 		
 		for(i = 0; i < advNum; i++){
 			lsu_ad *node = (lsu_ad*)malloc(sizeof(lsu_ad));
-			node->subnet = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 0]));
-			node->mask = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 4]));
-			node->router_id = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 8]));
+			node->subnet = byte2intIP(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 0]);
+			node->mask = byte2intIP(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 4]);
+			node->router_id = byte2intIP(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 8]);
+//			node->subnet = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 0]));
+//			node->mask = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 4]));
+//			node->router_id = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + i*12 + 8]));
 			node->next = NULL;
 			node->prev = NULL;
 			
@@ -347,9 +356,11 @@ void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
 	struct pwospf_if* iface;
 
 	// update LSU TTL
-	uint16_t lsu_ttl = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 2]));		
+	uint16_t lsu_ttl = byte2intShort(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 2]);
+//	uint16_t lsu_ttl = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 2]));		
 	lsu_ttl--;
-	*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 2]) = htons(lsu_ttl);
+	int2byteShort(lsu_ttl, &packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 2]);
+//	*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 2]) = htons(lsu_ttl);
 	
 	if(lsu_ttl <= 0){
 		dbgMsg("LSU TTL expired!");
