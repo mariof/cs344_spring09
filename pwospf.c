@@ -30,7 +30,7 @@ void pwospfTimeoutHelloThread(void *dummy){
 				struct pwospf_neighbor* nbor = iface->neighbor_list;
 				struct pwospf_neighbor* prev_nbor = NULL;
 				while(nbor){
-					if( (time(NULL) - nbor->lastHelloTime) > (NEIGHBOR_TIMEOUT * iface->helloint) ){
+					if( time(NULL) > nbor->lastHelloTime && (time(NULL) - nbor->lastHelloTime) > (NEIGHBOR_TIMEOUT * iface->helloint) ){
 						if(prev_nbor){
 							prev_nbor->next = nbor->next;
 							free(nbor);
@@ -385,6 +385,9 @@ void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
 		pthread_mutex_lock(&iface->neighbor_lock);
 		struct pwospf_neighbor* nbor = iface->neighbor_list;
 		while(nbor){		
+			// do not send to gw
+			if(nbor->id == 0) continue;
+
 			// dest IP
 			int2byteIP(nbor->ip, &packet[ETHERNET_HEADER_LENGTH + 16]); // destination IP
 
@@ -516,7 +519,10 @@ void sendLSU(){
 		iface = findPWOSPFif(&subsystem->pwospf, subsystem->ifaces[i].ip);
 		pthread_mutex_lock(&iface->neighbor_lock);
 		struct pwospf_neighbor* nbor = iface->neighbor_list;
-		while(nbor){		
+		while(nbor){
+			// do not send to gw
+			if(nbor->id == 0) continue;
+					
 			// dest IP
 			int2byteIP(nbor->ip, &packet[ETHERNET_HEADER_LENGTH + 16]); // destination IP
 

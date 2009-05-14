@@ -181,7 +181,7 @@ int arpTimeout(arpNode **head){
 							
 		}
 		else if((!cur->is_static) && ( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT-1 )){ // preemptive arp request
-			sendARPrequest(get_sr(), getIfName(cur->ip), cur->ip);
+			//sendARPrequest(get_sr(), getIfName(cur->ip), cur->ip);
 		}	
 		if(cur) cur = cur->next;
 	}

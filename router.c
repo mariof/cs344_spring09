@@ -440,9 +440,9 @@ uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint3
 			break;
 	}
 	pthread_rwlock_unlock(&subsystem->if_lock);
-	
 	if (i >= subsystem->num_ifaces){
 		errorMsg("Given interfaces does not exist");
+		free(p);
 		return NULL;
 	}	
 	
@@ -472,6 +472,7 @@ uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint3
 
 // sends ARP request for ip (host byte order)
 void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
+	//int i;
 	uint8_t *arprq = generateARPrequest(sr, interface, ip);
 	//for(i = 0; i < 60; i++) printf("::%d: %d\n", i, arprq[i]);				
 	sr_integ_low_level_output(sr, arprq, 60, interface);
@@ -532,7 +533,7 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 		errorMsg("Given interfaces does not exist");
 		return;
 	}
-	
+
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	if (subsystem->ifaces[i].enabled == 0){
 		//errorMsg("Given interface is disabled");

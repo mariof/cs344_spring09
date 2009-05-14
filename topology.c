@@ -775,8 +775,8 @@ void addMeToTopology(){
 		}
 		while(nbr){
 			lsu_ad *node = (lsu_ad*)malloc(sizeof(lsu_ad));
-			node->subnet = nbr->ip & pif->netmask;
-			node->mask = pif->netmask;
+			node->subnet = nbr->ip & nbr->nm;
+			node->mask = nbr->nm;
 			node->router_id = nbr->id;
 			node->next = NULL;
 			node->prev = NULL;
