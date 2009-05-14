@@ -3,10 +3,32 @@
 
 void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t gateway, const char* output_if, int is_static)
 {
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
     //check output_if size
     if(strlen(output_if) >= SR_NAMELEN) {
 	return;
     }
+
+	// if this is a default gw, add it as a neighbor to the interface
+	if(ip == 0 && netmask == 0 && gateway == 0){
+		struct sr_vns_if* out_if = router_lookup_interface_via_name(sr, output_if);
+		if(out_if != NULL){
+			struct pwospf_if* iface = findPWOSPFif(&subsystem->pwospf, out_if->ip);
+			
+			pthread_mutex_lock(&iface->neighbor_lock);
+			struct pwospf_neighbor* nbor = (struct pwospf_neighbor*)malloc(sizeof(struct pwospf_neighbor));
+			nbor->id = 0;
+			nbor->ip = 0;
+			nbor->nm = 0;
+			nbor->lastHelloTime = UINT_MAX;
+			nbor->next = iface->neighbor_list;
+			iface->neighbor_list = nbor;
+			
+			pthread_mutex_unlock(&iface->neighbor_lock);
+		}
+	}
 
     //create new node
     rtableNode *node = (rtableNode*) malloc(sizeof(rtableNode));

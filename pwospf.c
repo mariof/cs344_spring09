@@ -219,22 +219,36 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 			pthread_rwlock_unlock(&subsystem->if_lock);	
 		    return;
 		}
-				
+		
+		int updateTable = 0;		
 		pthread_mutex_lock(&iface->neighbor_lock);
 			struct pwospf_neighbor* nbor = findOSPFNeighbor(iface, srcIP);
 			if(nbor){
 				nbor->lastHelloTime = time(NULL);
+				if(nbor->id != routerID){
+					nbor->id = routerID;
+					updateTable = 1;
+				}
+				if(nbor->nm != iface->netmask){
+					nbor->nm = iface->netmask;
+					updateTable = 1;
+				}
 			}
 			else{
 				nbor = (struct pwospf_neighbor*)malloc(sizeof(struct pwospf_neighbor));
 				nbor->id = routerID;
 				nbor->ip = srcIP;
+				nbor->nm = iface->netmask;
 				nbor->lastHelloTime = time(NULL);
 				nbor->next = iface->neighbor_list;
 				iface->neighbor_list = nbor;
+				updateTable = 1;
 			}
 		pthread_mutex_unlock(&iface->neighbor_lock);
 		pthread_rwlock_unlock(&subsystem->if_lock);	
+		
+		// if neighbors have been updated
+		if(updateTable) update_rtable();
 	}
 	else if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 1] == 4){ // LSU packet
 		dbgMsg("LSU packet received");
@@ -327,12 +341,10 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 
 // forwards LSU packets to all interfaces except the incoming one, also decrements and checks TTL
 void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
-	int i, j, k;
+	int i;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-
-	// flood packet (ethernet flood)
-	for (j = 0; j < 6; j++) packet[j] = 255;
+	struct pwospf_if* iface;
 
 	// update LSU TTL
 	uint16_t lsu_ttl = ntohs(*(uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 2]));		
@@ -368,13 +380,26 @@ void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
 		if (!strcmp(incoming_if, subsystem->ifaces[i].name) || !(subsystem->ifaces[i].enabled) ){
 			continue;
 		}
-
-		// update Ethernet Header
-		uint8_t *myMAC = subsystem->ifaces[i].addr;
-		for (k = 6, j = 0; k < 12; k++, j++) packet[k] = myMAC[j];	
 			
-		// send packet
-		sr_integ_low_level_output(sr, packet, len, subsystem->ifaces[i].name);			
+		iface = findPWOSPFif(&subsystem->pwospf, subsystem->ifaces[i].ip);
+		pthread_mutex_lock(&iface->neighbor_lock);
+		struct pwospf_neighbor* nbor = iface->neighbor_list;
+		while(nbor){		
+			// dest IP
+			int2byteIP(nbor->ip, &packet[ETHERNET_HEADER_LENGTH + 16]); // destination IP
+
+			// IP checksum
+			packet[ETHERNET_HEADER_LENGTH + 10] = 0; packet[ETHERNET_HEADER_LENGTH + 11] = 0; // checksum (calculated later)
+			uint16_t ipChksum = checksum((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+			packet[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
+			packet[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
+		
+			// send packet
+			sendIPpacket(sr, subsystem->ifaces[i].name, nbor->ip, packet, len);
+			
+			nbor = nbor->next;
+		}	
+		pthread_mutex_unlock(&iface->neighbor_lock);
 	}
 	pthread_rwlock_unlock(&subsystem->if_lock);
 }
@@ -383,7 +408,7 @@ void forwardLSUpacket(const char* incoming_if, uint8_t* packet, unsigned len){
 void sendLSU(){
 	pthread_mutex_lock(&lsu_reentrant);
 	static uint16_t sequence = 0; // stupid static counter makes this function non-reentrant
-	int i, j, k;
+	int i;
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	int len = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8;
@@ -415,11 +440,6 @@ void sendLSU(){
 	packet = (uint8_t*)malloc(len*sizeof(uint8_t));
 
 
-	// fill Ethernet Header
-	for (i = 0; i < 6; i++) packet[i] = 255;
-	for (i = 6, j = 0; i < 12; i++, j++) packet[i] = 0;	
-	packet[12] = 8; packet[13] = 0;
-
 	// IP header
 	i = ETHERNET_HEADER_LENGTH;
 	packet[i++] = 69; // version and length 
@@ -431,7 +451,7 @@ void sendLSU(){
 	packet[i++] = 89; // protocol (OSPF)
 	packet[i++] = 0; packet[i++] = 0; // checksum (calculated later)
 	i += 4; // place for src IP
-	int2byteIP(ntohl(ALLSPFRouters), &packet[i]); i+=4; // destination IP
+	i += 4; // place for des IP
 	
 	// OSPF header
 	packet[i++] = 2; // version
@@ -462,8 +482,8 @@ void sendLSU(){
 				*((uint32_t*)&packet[i]) = htonl(0); i+=4; // router ID							
 			}
 			while(nbor){
-				*((uint32_t*)&packet[i]) = htonl(nbor->ip & iface->netmask); i+=4; // subnet
-				*((uint32_t*)&packet[i]) = htonl(iface->netmask); i+=4; // mask
+				*((uint32_t*)&packet[i]) = htonl(nbor->ip & nbor->nm); i+=4; // subnet
+				*((uint32_t*)&packet[i]) = htonl(nbor->nm); i+=4; // mask
 				*((uint32_t*)&packet[i]) = htonl(nbor->id); i+=4; // router ID				
 				nbor = nbor->next;
 			}				
@@ -489,22 +509,30 @@ void sendLSU(){
 		if ( !(subsystem->ifaces[i].enabled) ){
 			continue;
 		}
-
-		// update Ethernet Header
-		uint8_t *myMAC = subsystem->ifaces[i].addr;
-		for (k = 6, j = 0; k < 12; k++, j++) packet[k] = myMAC[j];	
-
+		
 		// src ip
 		int2byteIP(subsystem->ifaces[i].ip, &packet[ETHERNET_HEADER_LENGTH + 12]); // source IP
+		
+		iface = findPWOSPFif(&subsystem->pwospf, subsystem->ifaces[i].ip);
+		pthread_mutex_lock(&iface->neighbor_lock);
+		struct pwospf_neighbor* nbor = iface->neighbor_list;
+		while(nbor){		
+			// dest IP
+			int2byteIP(nbor->ip, &packet[ETHERNET_HEADER_LENGTH + 16]); // destination IP
 
-		// IP checksum
-		packet[ETHERNET_HEADER_LENGTH + 10] = 0; packet[ETHERNET_HEADER_LENGTH + 11] = 0; // checksum (calculated later)
-		uint16_t ipChksum = checksum((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
-		packet[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
-		packet[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
-	
-		// send packet
-		sr_integ_low_level_output(sr, packet, len, subsystem->ifaces[i].name);	
+			// IP checksum
+			packet[ETHERNET_HEADER_LENGTH + 10] = 0; packet[ETHERNET_HEADER_LENGTH + 11] = 0; // checksum (calculated later)
+			uint16_t ipChksum = checksum((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH]), IP_HEADER_LENGTH);
+			packet[ETHERNET_HEADER_LENGTH + 10] = (htons(ipChksum) >> 8) & 0xff; // IP checksum 
+			packet[ETHERNET_HEADER_LENGTH + 11] = (htons(ipChksum) & 0xff); // IP checksum
+		
+			// send packet
+			sendIPpacket(sr, subsystem->ifaces[i].name, nbor->ip, packet, len);
+			
+			nbor = nbor->next;
+		}
+		pthread_mutex_unlock(&iface->neighbor_lock);
+
 	}
 	pthread_rwlock_unlock(&subsystem->if_lock);
 

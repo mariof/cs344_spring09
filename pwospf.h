@@ -22,6 +22,7 @@ struct pwospf_router{
 struct pwospf_neighbor{
 	uint32_t id;
 	uint32_t ip;
+	uint32_t nm;
 	time_t lastHelloTime;
 	struct pwospf_neighbor* next;
 };
