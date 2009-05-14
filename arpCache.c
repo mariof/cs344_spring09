@@ -151,6 +151,8 @@ void arpDeleteMAC(arpNode **head, uint8_t *mac){
 
 // delete old entries in the list, return 0 if nothing was done, 1 if list was updated
 int arpTimeout(arpNode **head){
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	pthread_mutex_lock(&list_lock);
 	int retVal = 0;
 	
@@ -181,7 +183,9 @@ int arpTimeout(arpNode **head){
 							
 		}
 		else if((!cur->is_static) && ( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT-1 )){ // preemptive arp request
-			//sendARPrequest(get_sr(), getIfName(cur->ip), cur->ip);
+			char *out_if = lp_match(&(subsystem->rtable), cur->ip); //output interface
+			if(out_if) sendARPrequest(sr, out_if, cur->ip);
+			free(out_if);	
 		}	
 		if(cur) cur = cur->next;
 	}
