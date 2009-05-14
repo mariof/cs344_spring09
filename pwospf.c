@@ -458,7 +458,8 @@ void sendLSU(){
 	i = ETHERNET_HEADER_LENGTH;
 	packet[i++] = 69; // version and length 
 	packet[i++] = 0; // TOS
-	*((uint16_t*)&packet[i]) = htons(len - ETHERNET_HEADER_LENGTH); i+=2; // total length
+	int2byteShort(len - ETHERNET_HEADER_LENGTH, &packet[i]); i+=2;			
+//	*((uint16_t*)&packet[i]) = htons(len - ETHERNET_HEADER_LENGTH); i+=2; // total length
 	packet[i++] = (uint8_t)(rand() % 256); packet[i++] = (uint8_t)(rand() % 256); // identification
 	packet[i++] = 0; packet[i++] = 0; // fragmentation
 	packet[i++] = 64; // TTL
@@ -470,18 +471,24 @@ void sendLSU(){
 	// OSPF header
 	packet[i++] = 2; // version
 	packet[i++] = 4; // type (LSU)
-	*((uint16_t*)&packet[i]) = htons(len - ETHERNET_HEADER_LENGTH - IP_HEADER_LENGTH); i+=2; // ospf length (header + data)
-	*((uint32_t*)&packet[i]) = htonl(subsystem->pwospf.routerID); i+=4; // router ID
-	*((uint32_t*)&packet[i]) = htonl(subsystem->pwospf.areaID); i+=4; // area ID
+	int2byteShort(len - ETHERNET_HEADER_LENGTH - IP_HEADER_LENGTH, &packet[i]); i+=2;
+	int2byteIP(subsystem->pwospf.routerID, &packet[i]); i+=4;
+	int2byteIP(subsystem->pwospf.areaID, &packet[i]); i+=4;
+//	*((uint16_t*)&packet[i]) = htons(len - ETHERNET_HEADER_LENGTH - IP_HEADER_LENGTH); i+=2; // ospf length (header + data)
+//	*((uint32_t*)&packet[i]) = htonl(subsystem->pwospf.routerID); i+=4; // router ID
+//	*((uint32_t*)&packet[i]) = htonl(subsystem->pwospf.areaID); i+=4; // area ID
 	packet[i++] = 0; packet[i++] = 0; // checksum (calculated later)
 	packet[i++] = 0; packet[i++] = 0; // Autype
 	packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; // Authentication #1
 	packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; packet[i++] = 0; // Authentication #2
 
 	// LSU packet
-	*((uint16_t*)&packet[i]) = htons(sequence); i+=2; // sequence
-	*((uint16_t*)&packet[i]) = htons(LSU_DEFAULT_TTL); i+=2; // lsu ttl
-	*((uint32_t*)&packet[i]) = htonl(advCnt); i+=4; // number of advertisements
+	int2byteIP(sequence, &packet[i]); i+=2;
+	int2byteIP(LSU_DEFAULT_TTL, &packet[i]); i+=2;
+	int2byteIP(advCnt, &packet[i]); i+=4;
+//	*((uint16_t*)&packet[i]) = htons(sequence); i+=2; // sequence
+//	*((uint16_t*)&packet[i]) = htons(LSU_DEFAULT_TTL); i+=2; // lsu ttl
+//	*((uint32_t*)&packet[i]) = htonl(advCnt); i+=4; // number of advertisements
 
 	// add neighbor info to the packet
 	pthread_rwlock_rdlock(&subsystem->if_lock);
@@ -491,14 +498,20 @@ void sendLSU(){
 			pthread_mutex_lock(&iface->neighbor_lock);
 			struct pwospf_neighbor* nbor = iface->neighbor_list;
 			if(nbor == NULL){ // if there is no router connected, advertise routerID: 0 (i.e. end hosts)
-				*((uint32_t*)&packet[i]) = htonl(iface->ip & iface->netmask); i+=4; // subnet
-				*((uint32_t*)&packet[i]) = htonl(iface->netmask); i+=4; // mask
-				*((uint32_t*)&packet[i]) = htonl(0); i+=4; // router ID							
+				int2byteIP(iface->ip & iface->netmask, &packet[i]); i+=4;
+				int2byteIP(iface->netmask, &packet[i]); i+=4;
+				int2byteIP(0, &packet[i]); i+=4;
+//				*((uint32_t*)&packet[i]) = htonl(iface->ip & iface->netmask); i+=4; // subnet
+//				*((uint32_t*)&packet[i]) = htonl(iface->netmask); i+=4; // mask
+//				*((uint32_t*)&packet[i]) = htonl(0); i+=4; // router ID							
 			}
 			while(nbor){
-				*((uint32_t*)&packet[i]) = htonl(nbor->ip & nbor->nm); i+=4; // subnet
-				*((uint32_t*)&packet[i]) = htonl(nbor->nm); i+=4; // mask
-				*((uint32_t*)&packet[i]) = htonl(nbor->id); i+=4; // router ID				
+				int2byteIP(nbor->ip & nbor->nm, &packet[i]); i+=4;
+				int2byteIP(nbor->nm, &packet[i]); i+=4;
+				int2byteIP(nbor->id, &packet[i]); i+=4;			
+//				*((uint32_t*)&packet[i]) = htonl(nbor->ip & nbor->nm); i+=4; // subnet
+//				*((uint32_t*)&packet[i]) = htonl(nbor->nm); i+=4; // mask
+//				*((uint32_t*)&packet[i]) = htonl(nbor->id); i+=4; // router ID				
 				nbor = nbor->next;
 			}				
 			pthread_mutex_unlock(&iface->neighbor_lock);		
@@ -591,8 +604,10 @@ void sendHello(uint32_t ifIP){
 	p[i++] = 1; // type (Hello)
 	p[i++] = 0; // ospf length (header + data) -> MSB
 	p[i++] = 32; // ospf length (header + data) -> LSB
-	*((uint32_t*)&p[i]) = htonl(subsystem->pwospf.routerID); i+=4; // router ID
-	*((uint32_t*)&p[i]) = htonl(subsystem->pwospf.areaID); i+=4; // area ID
+	int2byteIP(subsystem->pwospf.routerID, &p[i]); i+=4;			
+	int2byteIP(subsystem->pwospf.areaID, &p[i]); i+=4;			
+//	*((uint32_t*)&p[i]) = htonl(subsystem->pwospf.routerID); i+=4; // router ID
+//	*((uint32_t*)&p[i]) = htonl(subsystem->pwospf.areaID); i+=4; // area ID
 	p[i++] = 0; p[i++] = 0; // checksum (calculated later)
 	p[i++] = 0; p[i++] = 0; // Autype
 	p[i++] = 0; p[i++] = 0; p[i++] = 0; p[i++] = 0; // Authentication #1
@@ -621,10 +636,14 @@ void sendHello(uint32_t ifIP){
 				errorMsg("Hello header: unknown interface");	
 				break;
 			}
-			*((uint32_t*)&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 0]) = 
-				htonl(pwif->netmask); // netmask
-			*((uint16_t*)&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]) = 
-				htons(pwif->helloint); // hello interval
+			
+			int2byteIP(pwif->netmask, &p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 0]);			
+			int2byteShort(pwif->helloint, &p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]);			
+
+//			*((uint32_t*)&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 0]) = 
+//				htonl(pwif->netmask); // netmask
+//			*((uint16_t*)&p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 4]) = 
+//				htons(pwif->helloint); // hello interval
 			p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 6] = 0; // padding
 			p[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 7] = 0; // padding
 			
