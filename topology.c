@@ -537,10 +537,10 @@ void update_rtable()
     printf("**********************************************\n");
 	topo_router *p_router = topo_head;
 	while(p_router){
-		printf("%d:: ", p_router->router_id);
+		printf("%u:: ", p_router->router_id);
 		lsu_ad *p_ad = p_router->ads;
 		while(p_ad){
-			printf("%d ", p_ad->router_id);
+			printf("%u ", p_ad->router_id);
 			p_ad = p_ad->next;
 		}
 		printf("\n");
@@ -552,7 +552,7 @@ void update_rtable()
     printf("----------------------------------------------\n");
     printf("----------------------------------------------\n");
     for(i = 0, cur_rtr = topo_head; i < n; i++, cur_rtr = cur_rtr->next) {
-	printf("%d, ", cur_rtr->router_id);
+	printf("%u, ", cur_rtr->router_id);
     }
     printf("\n");
     printf("----------------------------------------------\n");

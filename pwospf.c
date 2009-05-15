@@ -533,7 +533,7 @@ void sendLSU(){
 		
 			// send packet
 			sendIPpacket(sr, subsystem->ifaces[i].name, nbor->ip, packet, len);
-			
+
 			nbor = nbor->next;
 		}
 		pthread_mutex_unlock(&iface->neighbor_lock);

@@ -544,6 +544,11 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	for (i = 0; i < 6; i++) packet[i] = 0;
 	for (i = 6, j = 0; i < 12; i++, j++) packet[i] = myMAC[j];	
 	packet[12] = 8; packet[13] = 0;
+	
+	// if it's for me, process it
+	if(isMyIP(ip)){
+		processPacket(sr, packet, len, interface);
+	}
 
 	// get destination MAC
 	uint8_t *dstMAC = arpLookupTree(subsystem->arpTree, ip);
@@ -559,6 +564,7 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	else{ // send out ARP and queue the packet
 		dbgMsg("Queueing packet");
 		sendARPrequest(sr, interface, ip);
+		printf("if: %s, ip: %x\n", interface, ip);
 		queuePacket(packet, len, interface, ip);
 	}	
 }
