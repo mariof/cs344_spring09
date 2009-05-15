@@ -507,9 +507,9 @@ uint32_t getNextHopIP(uint32_t ip){
 	dbgMsg("Looking up IP in routing table");
 	retVal = gw_match(&subsystem->rtable, ip);
 	
-	uint8_t si[4], di[4];
-	int2byteIP(ip, si);
-	int2byteIP(retVal, di);
+//	uint8_t si[4], di[4];
+//	int2byteIP(ip, si);
+//	int2byteIP(retVal, di);
 	
 	//printf("from: %u.%u.%u.%u to: %u.%u.%u.%u\n", si[0], si[1], si[2], si[3], di[0], di[1], di[2], di[3]);
 	return retVal;
@@ -814,11 +814,11 @@ void writeIPfilter(){
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	
 	for(i = 0; i < subsystem->num_ifaces; i++){
-		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, htonl(subsystem->ifaces[i].ip));
+		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, subsystem->ifaces[i].ip);
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG, i);
 	}
 	// write 224.0.0.5
-	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, ALLSPFRouters);
+	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, ntohl(ALLSPFRouters));
 	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG, i);
 	i++;
 	for(; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH ; i++){
@@ -851,7 +851,7 @@ void writeARPCache(arpTreeNode *node, int *index){
 
 	if(*index < ROUTER_OP_LUT_ARP_TABLE_DEPTH){
 		pthread_mutex_lock(&arpRegLock);
-		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_NEXT_HOP_IP_REG, htonl(node->ip) );
+		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_NEXT_HOP_IP_REG, node->ip );
 		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_HI_REG, mac_hi );
 		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_LO_REG, mac_lo );
 		writeReg( &netFPGA, ROUTER_OP_LUT_ARP_TABLE_WR_ADDR_REG, (*index)++ );
@@ -920,9 +920,9 @@ void writeRoutingTable(){
 	while(rtable){
 		uint32_t ifs = 0;
 		if(index < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH){
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_IP_REG, htonl(rtable->ip) );
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_MASK_REG, htonl(rtable->netmask) );
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, htonl(rtable->gateway) );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_IP_REG, rtable->ip );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_MASK_REG, rtable->netmask );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, rtable->gateway );
 			
 			char *name;
 			name = getIfNameFromMAC(&mac[3][0]);

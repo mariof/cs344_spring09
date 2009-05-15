@@ -230,8 +230,8 @@ void sr_integ_add_interface(struct sr_instance* sr,
     struct sr_vns_if *tmp_if = &subsystem->ifaces[subsystem->num_ifaces-1];
     strcpy(tmp_if->name, vns_if->name);
     for(i = 0; i < 6; i++) tmp_if->addr[i] = vns_if->addr[i];
-    tmp_if->ip = vns_if->ip;
-    tmp_if->mask = vns_if->mask;
+    tmp_if->ip = ntohl(vns_if->ip);
+    tmp_if->mask = ntohl(vns_if->mask);
     tmp_if->speed = vns_if->speed;
     tmp_if->enabled = 1;
     
@@ -316,7 +316,7 @@ void sr_integ_destroy(struct sr_instance* sr)
 #endif /* _CPUMODE_ */
     
 } /* -- sr_integ_destroy -- */
-
+t
 /*-----------------------------------------------------------------------------
  * Method: sr_integ_findsrcip(..)
  * Scope: global
@@ -374,8 +374,8 @@ uint32_t sr_integ_findsrcip(uint32_t dest /* nbo */)
 
 uint32_t sr_integ_ip_output(uint8_t* payload /* given */,
                             uint8_t  proto,
-                            uint32_t src, /* nbo */ // liar, it's hbo (mariof)
-                            uint32_t dest, /* nbo */ // liar, it's hbo (mariof)
+                            uint32_t src, /* nbo */
+                            uint32_t dest, /* nbo */
                             int len)
 {
 //    fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
