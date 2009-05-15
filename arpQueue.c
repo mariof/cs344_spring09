@@ -127,9 +127,10 @@ void arpQueueRefresh(void* dummy){
 					// send out ICMP (host unreachable)
 					pthread_mutex_unlock(&queue_lock);
 					dbgMsg("ARP queue timeout");
+
 					uint32_t srcIP = ntohl(*((uint32_t*)&curTmp->packet[ETHERNET_HEADER_LENGTH + 12]));
 					char *out_if = lp_match(&(subsystem->rtable), srcIP); //output interface
-					if(out_if) sendICMPDestinationUnreachable(cur->interface, curTmp->packet, curTmp->len, 1);
+					if(out_if && !isMyIP(srcIP)) sendICMPDestinationUnreachable(out_if, curTmp->packet, curTmp->len, 1);
 					free(out_if);	
 					free(curTmp);			
 					goto loop_begin; // no way anoyone is going to convince me that there is a better way to to this (mariof)

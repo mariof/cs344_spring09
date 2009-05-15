@@ -209,7 +209,7 @@ void processPacket(struct sr_instance* sr,
     	    	
     	// handle ARP requests and responses    	
     	if (arpPacket[6] == 0 && arpPacket[7] == 1){
-  //  		dbgMsg("ARP request received");
+    	//	dbgMsg("ARP request received");
 			size_t ipLen = arpPacket[5];
 			size_t macLen = arpPacket[4];
     		const uint8_t* arpPacketData = &arpPacket[ARP_HEADER_LENGTH];
@@ -221,7 +221,7 @@ void processPacket(struct sr_instance* sr,
     				arpPacketData[macLen + ipLen + macLen + 3] * 1; 
     				
     	    //for(i = macLen+ipLen+macLen; i < macLen+ipLen+macLen+4; i++) printf("%d: %d\n", i, arpPacketData[i]);
-			uint8_t* if_mac = getMAC(sr, ntohl(dstIP), interface);
+			uint8_t* if_mac = getMAC(sr, dstIP, interface);
 				
 			if (if_mac){
 				dbgMsg("IP match found, need to send ARP response");				
@@ -469,9 +469,9 @@ uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint3
 
 // sends ARP request for ip (host byte order)
 void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
-	//int i;
+	int i;
 	uint8_t *arprq = generateARPrequest(sr, interface, ip);
-	//for(i = 0; i < 60; i++) printf("::%d: %d\n", i, arprq[i]);				
+	for(i = 0; i < 60; i++) printf("::%d: %d\n", i, arprq[i]);				
 	sr_integ_low_level_output(sr, arprq, 60, interface);
 	free(arprq);			
 }
@@ -545,11 +545,6 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	for (i = 6, j = 0; i < 12; i++, j++) packet[i] = myMAC[j];	
 	packet[12] = 8; packet[13] = 0;
 	
-	// if it's for me, process it
-	if(isMyIP(ip)){
-		processPacket(sr, packet, len, interface);
-	}
-
 	// get destination MAC
 	uint8_t *dstMAC = arpLookupTree(subsystem->arpTree, ip);
 	
