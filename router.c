@@ -469,9 +469,9 @@ uint8_t* generateARPrequest(struct sr_instance* sr, const char* interface, uint3
 
 // sends ARP request for ip (host byte order)
 void sendARPrequest(struct sr_instance* sr, const char* interface, uint32_t ip){
-	int i;
+	//int i;
 	uint8_t *arprq = generateARPrequest(sr, interface, ip);
-	for(i = 0; i < 60; i++) printf("::%d: %d\n", i, arprq[i]);				
+	//for(i = 0; i < 60; i++) printf("::%d: %d\n", i, arprq[i]);				
 	sr_integ_low_level_output(sr, arprq, 60, interface);
 	free(arprq);			
 }
@@ -559,7 +559,6 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	else{ // send out ARP and queue the packet
 		dbgMsg("Queueing packet");
 		sendARPrequest(sr, interface, ip);
-		printf("if: %s, ip: %x\n", interface, ip);
 		queuePacket(packet, len, interface, ip);
 	}	
 }
@@ -678,28 +677,28 @@ void fill_rtable(rtableNode **head)
 	*head = NULL;
 	
     while (!feof(rtable_file)) {
-	if (fscanf(rtable_file, "%d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s", 
-		    &ip[0], &ip[1], &ip[2], &ip[3],
-		    &gw[0], &gw[1], &gw[2], &gw[3],
-		    &nm[0], &nm[1], &nm[2], &nm[3],
-		    output_if) != 13)
-	    break;
-	printf("Added to the routing table : %d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s\n", 
-		    ip[0], ip[1], ip[2], ip[3],
-		    gw[0], gw[1], gw[2], gw[3],
-		    nm[0], nm[1], nm[2], nm[3],
-		    output_if);
-	for(i = 0; i < 4; i++) {
-	    ip_32 = ip_32 << 8;
-	    ip_32 += (uint32_t)ip[i];
-	    gw_32 = gw_32 << 8;
-	    gw_32 += (uint32_t)gw[i];
-	    nm_32 = nm_32 << 8;
-	    nm_32 += (uint32_t)nm[i];
-	}
-	printf("%x  %x  %x  %s\n", ip_32, gw_32, nm_32, output_if);
-	insert_rtable_node(head, ntohl(ip_32), ntohl(nm_32), ntohl(gw_32), output_if, 1);
-	ip_32 = gw_32 = nm_32 = 0;
+		if (fscanf(rtable_file, "%d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s", 
+			    &ip[0], &ip[1], &ip[2], &ip[3],
+			    &gw[0], &gw[1], &gw[2], &gw[3],
+			    &nm[0], &nm[1], &nm[2], &nm[3],
+			    output_if) != 13)
+		    break;
+		printf("Added to the routing table : %d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s\n", 
+			    ip[0], ip[1], ip[2], ip[3],
+			    gw[0], gw[1], gw[2], gw[3],
+			    nm[0], nm[1], nm[2], nm[3],
+			    output_if);
+		for(i = 0; i < 4; i++) {
+		    ip_32 = ip_32 << 8;
+		    ip_32 += (uint32_t)ip[i];
+		    gw_32 = gw_32 << 8;
+		    gw_32 += (uint32_t)gw[i];
+		    nm_32 = nm_32 << 8;
+		    nm_32 += (uint32_t)nm[i];
+		}
+		printf("%x  %x  %x  %s\n", ip_32, gw_32, nm_32, output_if);
+		insert_rtable_node(head, ip_32, nm_32, gw_32, output_if, 1);
+		ip_32 = gw_32 = nm_32 = 0;
     }
 
     fclose(rtable_file);

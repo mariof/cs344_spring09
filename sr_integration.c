@@ -149,13 +149,13 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 	    
 	// clear arp tree (this is mainly for hw's benefit)
 	arpReplaceTree(&subsystem->arpTree, NULL);
-
-    // Load routing table
-    fill_rtable(&(subsystem->rtable));
     
     // init pwospf
     initPWOSPF(sr);
 	sys_thread_new(pwospfTimeoutHelloThread, NULL);
+
+    // Load routing table
+    fill_rtable(&(subsystem->rtable));
 
 	// start pwospf threads
 	struct pwospf_if* node = subsystem->pwospf.if_list;

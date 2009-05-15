@@ -11,6 +11,7 @@ void arpInsert(arpNode **head, uint32_t ip, uint8_t *mac, int is_static){
 	n->ip = ip;
 	for(i = 0; i < 6; i++) n->mac[i] = mac[i];
 	n->t = time(NULL);
+	n->cntr = 0;
 	n->is_static = is_static;
 	n->next = n->prev = NULL;
 
@@ -182,9 +183,12 @@ int arpTimeout(arpNode **head){
 				cur = *head;
 							
 		}
-		else if((!cur->is_static) && ( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT-1 )){ // preemptive arp request
+		else if((!cur->is_static) && (cur->cntr < MAX_PREEMPTIVE_ARPS) && ( ( time(NULL) - cur->t ) > ARP_CACHE_TIMEOUT-1 )){ // preemptive arp request
 			char *out_if = lp_match(&(subsystem->rtable), cur->ip); //output interface
-			if(out_if) sendARPrequest(sr, out_if, cur->ip);
+			if(out_if){
+				sendARPrequest(sr, out_if, cur->ip);
+				cur->cntr++;
+			}
 			free(out_if);	
 		}	
 		if(cur) cur = cur->next;

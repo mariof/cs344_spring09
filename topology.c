@@ -821,7 +821,7 @@ void addMeToTopology(){
 			}
 		}
 		pthread_mutex_unlock(&pif->neighbor_lock);
-	
+				
 	}
 	pthread_rwlock_unlock(&subsystem->if_lock);
 

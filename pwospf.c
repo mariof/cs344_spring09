@@ -432,6 +432,17 @@ void sendLSU(){
 				nbor = nbor->next;
 			}
 			pthread_mutex_unlock(&iface->neighbor_lock);		
+			pthread_mutex_lock(&rtable_lock);
+ 		   	rtableNode *rtable = subsystem->rtable;
+    		while(rtable){
+	    		if(rtable->ip == 0 && rtable->netmask == 0 && !strcmp(rtable->output_if, getIfName(iface->ip))){
+					advCnt++;
+					break;
+				}
+	    		rtable = rtable->next;
+	    	}
+	    	pthread_mutex_unlock(&rtable_lock);
+
 		}			
 		iface = iface->next;
 	}	
@@ -488,8 +499,23 @@ void sendLSU(){
 				*((uint32_t*)&packet[i]) = htonl(nbor->nm); i+=4; // mask
 				*((uint32_t*)&packet[i]) = htonl(nbor->id); i+=4; // router ID				
 				nbor = nbor->next;
-			}				
+			}
 			pthread_mutex_unlock(&iface->neighbor_lock);		
+
+			// advertise default route if present	
+			pthread_mutex_lock(&rtable_lock);
+ 		   	rtableNode *rtable = subsystem->rtable;
+    		while(rtable){
+	    		if(rtable->ip == 0 && rtable->netmask == 0 && !strcmp(rtable->output_if, getIfName(iface->ip))){
+					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // subnet
+					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // mask
+					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // router ID							
+					break;
+				}
+	    		rtable = rtable->next;
+	    	}
+	    	pthread_mutex_unlock(&rtable_lock);			
+							
 		}
 			
 		iface = iface->next;

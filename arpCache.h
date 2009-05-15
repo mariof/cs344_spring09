@@ -9,11 +9,13 @@
 #include <stdlib.h>
 
 #define ARP_CACHE_TIMEOUT 5
+#define MAX_PREEMPTIVE_ARPS 20 
 
 struct arpCacheNode{
 	uint32_t ip;
 	uint8_t mac[6];
 	time_t t;
+	uint32_t cntr;
 	int is_static;
 	struct arpCacheNode *next;
 	struct arpCacheNode *prev;
