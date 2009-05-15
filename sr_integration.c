@@ -316,7 +316,7 @@ void sr_integ_destroy(struct sr_instance* sr)
 #endif /* _CPUMODE_ */
     
 } /* -- sr_integ_destroy -- */
-t
+
 /*-----------------------------------------------------------------------------
  * Method: sr_integ_findsrcip(..)
  * Scope: global
