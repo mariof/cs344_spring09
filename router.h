@@ -74,9 +74,6 @@ void writeARPCache(arpTreeNode *node, int *index);
 void writeRoutingTable();
 
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
-void int2byteShort(uint16_t num, uint8_t *byteIP);
-uint32_t byte2intIP(const uint8_t *byteIP);
-uint16_t byte2intShort(const uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);
 uint32_t getNextHopIP(uint32_t ip);
 void printARPCache();

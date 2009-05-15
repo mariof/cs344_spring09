@@ -25,10 +25,8 @@ void processEchoReply(const uint8_t* packet, unsigned len){
 	struct timeval tv;
 	gettimeofday(&tv, 0);
 	
-	identifier = byte2intShort(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4]);
-	seqNum = byte2intShort(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 6]);
-//	identifier = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4])));
-//	seqNum = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 6])));
+	identifier = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4])));
+	seqNum = ntohs(*((uint16_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 6])));
 	
 	pthread_mutex_lock(&ping_lock);
 		struct pingRequestNode *node = pingListHead;
@@ -72,10 +70,8 @@ void processTTLexpired(const uint8_t* packet, unsigned len){
 	gettimeofday(&tv, 0);
 	const int orig_ip_header_offset = ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 8;
 	
-	identifier = byte2intShort(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 4]);
-	seqNum = byte2intShort(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 6]);
-//	identifier = ntohs(*((uint16_t*)(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 4])));
-//	seqNum = ntohs(*((uint16_t*)(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 6])));
+	identifier = ntohs(*((uint16_t*)(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 4])));
+	seqNum = ntohs(*((uint16_t*)(&packet[orig_ip_header_offset + IP_HEADER_LENGTH + 6])));
 	sentTTL = packet[orig_ip_header_offset + 8];
 	
 	pthread_mutex_lock(&ping_lock);

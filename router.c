@@ -322,20 +322,6 @@ void int2byteIP(uint32_t ip, uint8_t *byteIP){
 	nip = nip / 256;
 	byteIP[0] = (uint8_t)(nip % 256);	
 }
-void int2byteShort(uint16_t num, uint8_t *byteIP){
-	uint32_t nip = htons(num);
-	
-	byteIP[1] = (uint8_t)(nip % 256);
-	nip = nip / 256;
-	byteIP[0] = (uint8_t)(nip % 256);	
-}
-uint32_t byte2intIP(const uint8_t *byteIP){
-	return ( (uint32_t)byteIP[0] << 24 ) + ( (uint32_t)byteIP[0] << 16 ) + ( (uint32_t)byteIP[0] << 8 ) + ( (uint32_t)byteIP[0] << 0 );
-}
-uint16_t byte2intShort(const uint8_t *byteIP){
-	return ( (uint16_t)byteIP[0] << 8 ) + ( (uint16_t)byteIP[0] << 0 );
-}
-
 
 // returns interface IP
 uint32_t getInterfaceIP(const char* interface){
