@@ -110,7 +110,6 @@ void processPacket(struct sr_instance* sr,
 	    ipPacket[17] * 256 * 256 +
 	    ipPacket[18] * 256 +
 	    ipPacket[19] * 1; 
-	dstIP = ntohl(dstIP); // dstIP in hbo
 
 	// find the interface with target IP
 	uint32_t myIP = 0;
@@ -246,7 +245,6 @@ void processPacket(struct sr_instance* sr,
     				arpPacketData[macLen + 1] * 256 * 256 +
     				arpPacketData[macLen + 2] * 256 +
     				arpPacketData[macLen + 3] * 1;  				
-    		srcIP = ntohl(srcIP); 
     	
     		arpInsert(&subsystem->arpList, srcIP, srcMAC, 0);
 			arpReplaceTree(&subsystem->arpTree, arpGenerateTree(subsystem->arpList));

@@ -161,7 +161,6 @@ void sendICMPEchoReply(const char* interface, const uint8_t* requestPacket, unsi
 			requestPacket[ETHERNET_HEADER_LENGTH + 13] * 256 * 256 +
 			requestPacket[ETHERNET_HEADER_LENGTH + 14] * 256 +
 			requestPacket[ETHERNET_HEADER_LENGTH + 15] * 1;    				
-	dstIP = ntohl(dstIP);
 
 	//for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
 	
@@ -298,7 +297,6 @@ void sendICMPDestinationUnreachable(const char* interface, const uint8_t* origin
 			originalPacket[ETHERNET_HEADER_LENGTH + 13] * 256 * 256 +
 			originalPacket[ETHERNET_HEADER_LENGTH + 14] * 256 +
 			originalPacket[ETHERNET_HEADER_LENGTH + 15] * 1;    				
-	dstIP = ntohl(dstIP);
 
 //	for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
 	
@@ -361,7 +359,6 @@ void sendICMPTimeExceeded(const char* interface, const uint8_t* originalPacket, 
 			originalPacket[ETHERNET_HEADER_LENGTH + 13] * 256 * 256 +
 			originalPacket[ETHERNET_HEADER_LENGTH + 14] * 256 +
 			originalPacket[ETHERNET_HEADER_LENGTH + 15] * 1;    				
-	dstIP = ntohl(dstIP);
 
 //	for(i = 0; i < len; i++) printf("%d: %d\n", i, requestPacket[i]);
 	

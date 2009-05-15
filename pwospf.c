@@ -194,7 +194,6 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 					 packet[ETHERNET_HEADER_LENGTH + 13] * 256 * 256 +
 					 packet[ETHERNET_HEADER_LENGTH + 14] * 256 +
 					 packet[ETHERNET_HEADER_LENGTH + 15] * 1;    				
-    srcIP = ntohl(srcIP);
 
 	uint32_t routerID = ntohl(*(uint32_t*)(&packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 4]));
 
