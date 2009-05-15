@@ -267,6 +267,7 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 		}
 		
 		if(len < ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + OSPF_HEADER_LENGTH + 8 + 12*advNum){
+			printf("LSU len: %u, advNum: %u\n", len, advNum);
 			errorMsg("LSU packet too short. Dropping the packet");
 			return;
 		}
@@ -436,7 +437,7 @@ void sendLSU(){
 			pthread_mutex_lock(&rtable_lock);
  		   	rtableNode *rtable = subsystem->rtable;
     		while(rtable){
-	    		if(rtable->ip == 0 && rtable->netmask == 0 && !strcmp(rtable->output_if, getIfName(iface->ip))){
+	    		if(rtable->ip == 0 && rtable->netmask == 0 && rtable->is_static && !strcmp(rtable->output_if, getIfName(iface->ip))){
 					advCnt++;
 					break;
 				}
@@ -507,7 +508,7 @@ void sendLSU(){
 			pthread_mutex_lock(&rtable_lock);
  		   	rtableNode *rtable = subsystem->rtable;
     		while(rtable){
-	    		if(rtable->ip == 0 && rtable->netmask == 0 && !strcmp(rtable->output_if, getIfName(iface->ip))){
+	    		if(rtable->ip == 0 && rtable->netmask == 0 && rtable->is_static && !strcmp(rtable->output_if, getIfName(iface->ip))){
 					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // subnet
 					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // mask
 					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // router ID							
