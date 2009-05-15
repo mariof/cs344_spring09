@@ -145,7 +145,7 @@ void processPacket(struct sr_instance* sr,
 	else if (is_broadcast){ // broadcast IP
 		// nothing to do really, ignoring all packets
 	}
-	else if (dstIP == ntohl(ALLSPFRouters)){
+	else if (dstIP == ALLSPFRouters){
 	    if(ipPacket[9] == 89){ // OSPF
 			processPWOSPF(interface, packet, len);
 	    } 		
@@ -818,7 +818,7 @@ void writeIPfilter(){
 		writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG, i);
 	}
 	// write 224.0.0.5
-	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, ntohl(ALLSPFRouters));
+	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG, ALLSPFRouters);
 	writeReg(&netFPGA, ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG, i);
 	i++;
 	for(; i < ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH ; i++){

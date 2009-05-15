@@ -871,7 +871,7 @@ void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, uns
 		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_HI_REG, &mac_hi);	
 		readReg(&netFPGA, ROUTER_OP_LUT_ARP_TABLE_ENTRY_MAC_LO_REG, &mac_lo);	
 		
-		int2byteIP(ntohl(ip), strIP);
+		int2byteIP(ip, strIP);
 		mac[0] = (mac_hi >> 8) & 0xFF;
 		mac[1] = (mac_hi) & 0xFF;
 		mac[2] = (mac_lo >> 24) & 0xFF;
@@ -907,7 +907,7 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 		
 		if(val != 0){
 			uint8_t ip[4];
-			int2byteIP(ntohl(val), ip);
+			int2byteIP(val, ip);
 			strLen += sprintf(tmp, "index: %d  IP: %u.%u.%u.%u\n", i, ip[0], ip[1], ip[2], ip[3]); 
 			if(strLen <= len) strcat(buf, tmp);
 		}			
@@ -936,9 +936,9 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, &gw);	
 		readReg(&netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, &ifs);	
 		
-		int2byteIP(ntohl(subnet & mask), strSubnet);
-		int2byteIP(ntohl(mask), strMask);
-		int2byteIP(ntohl(gw), strGw);
+		int2byteIP(subnet & mask, strSubnet);
+		int2byteIP(mask, strMask);
+		int2byteIP(gw, strGw);
 		
 		if(subnet != 0 || mask != 0 || gw != 0 || ifs != 0){
 			strLen += sprintf(	tmp, "subnet: %u.%u.%u.%u  mask: %u.%u.%u.%u  gw: %u.%u.%u.%u  interfaces: %u%u %u%u %u%u %u%u\n", 

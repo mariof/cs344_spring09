@@ -573,7 +573,7 @@ void sendHello(uint32_t ifIP){
 	p[i++] = 89; // protocol (OSPF)
 	p[i++] = 0; p[i++] = 0; // checksum (calculated later)
 	i += 4; // place for src IP
-	int2byteIP(ntohl(ALLSPFRouters), &p[i]); i+=4; // destination IP
+	int2byteIP(ALLSPFRouters, &p[i]); i+=4; // destination IP
 	
 	// OSPF header
 	p[i++] = 2; // version

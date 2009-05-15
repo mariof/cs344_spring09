@@ -1,7 +1,7 @@
 #ifndef PWOSPF_H
 #define PWOSPF_H
 
-#define ALLSPFRouters 0xe0000005 // 224.0.0.5 in nbo
+#define ALLSPFRouters 0xe0000005 // 224.0.0.5 in hbo
 #define HELLOINT 2
 #define NEIGHBOR_TIMEOUT 3 // timeout time =  NEIGHBOR_TIMEOUT x HELLOINT
 //#define LSUINT 5
