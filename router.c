@@ -312,15 +312,14 @@ uint8_t* generateARPreply(const uint8_t *packet, size_t len, uint8_t *mac){
 
 // converts IP from host byte order integer to network byte order byte array
 void int2byteIP(uint32_t ip, uint8_t *byteIP){
-	uint32_t nip = htonl(ip);
-	
-	byteIP[3] = (uint8_t)(nip % 256);
-	nip = nip / 256;
-	byteIP[2] = (uint8_t)(nip % 256);
-	nip = nip / 256;
-	byteIP[1] = (uint8_t)(nip % 256);
-	nip = nip / 256;
-	byteIP[0] = (uint8_t)(nip % 256);	
+
+	byteIP[3] = (uint8_t)(ip % 256);
+	ip = ip / 256;
+	byteIP[2] = (uint8_t)(ip % 256);
+	ip = ip / 256;
+	byteIP[1] = (uint8_t)(ip % 256);
+	ip = ip / 256;
+	byteIP[0] = (uint8_t)(ip % 256);	
 }
 
 // returns interface IP
