@@ -2,7 +2,7 @@
 #define PWOSPF_H
 
 #define ALLSPFRouters 0xe0000005 // 224.0.0.5 in hbo
-#define HELLOINT 2
+#define HELLOINT 5
 #define NEIGHBOR_TIMEOUT 3 // timeout time =  NEIGHBOR_TIMEOUT x HELLOINT
 //#define LSUINT 5
 
@@ -10,7 +10,7 @@
 
 #define LSU_DEFAULT_TTL 64
 
-#define AREA_ID 1
+#define AREA_ID 0
 
 struct pwospf_router{
 	uint32_t routerID;

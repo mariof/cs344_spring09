@@ -623,9 +623,17 @@ void update_rtable()
 			tmp_int = parent_vec[j];
 			parent_vec[j] = parent_vec[j+1];
 			parent_vec[j+1] = tmp_int;
+			int k = 0;
+			for(k = 0; k < n; k++) {
+				if(parent_vec[k] == j)
+					parent_vec[k] = j+1;
+				else if(parent_vec[k] == j+1)
+					parent_vec[k] = j;
+			}
 	    }
     }
     
+    s = get_index((topo_router**)rtr_vec, n, subsystem->pwospf.routerID); // source router
     // For each router, reconstruct path
     rtableNode *shadow = NULL;
     for(i = 0; i < n; i++) {
@@ -646,7 +654,10 @@ void update_rtable()
 		}
 
 		int curr_index = i;
+		int hack_index = -1;
 		while(parent_vec[curr_index] != s){
+		    if(hack_index == curr_index) break;
+		    hack_index = curr_index;
 		    curr_index = parent_vec[curr_index];
 		    if(curr_index < 0 || curr_index >= n) {
 			//disconnected node

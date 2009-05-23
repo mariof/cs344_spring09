@@ -247,7 +247,10 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 		pthread_rwlock_unlock(&subsystem->if_lock);	
 		
 		// if neighbors have been updated
-		if(updateTable) update_rtable();
+		if(updateTable){
+			update_rtable();
+			sendLSU();
+		}
 	}
 	else if(packet[ETHERNET_HEADER_LENGTH + IP_HEADER_LENGTH + 1] == 4){ // LSU packet
 		dbgMsg("LSU packet received");

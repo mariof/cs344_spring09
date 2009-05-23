@@ -629,6 +629,7 @@ void cli_exit() {
 
 int cli_ping_handle_self( uint32_t ip ) {
     void* intf;
+    ip = ntohl(ip);
 
     intf = router_lookup_interface_via_ip( SR, ip );
     if( intf ) {
@@ -652,7 +653,8 @@ static void cli_send_ping( int client_fd, uint32_t ip ) {
     char *out_if = NULL;
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-
+	ip = ntohl(ip);
+	
 	out_if = lp_match(&(subsystem->rtable), ip); //output interface
 	if(out_if == NULL) return;
 
@@ -720,8 +722,9 @@ void cli_traceroute( gross_ip_t* data ) {
     char *out_if = NULL;
     struct sr_instance* sr = get_sr();
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
-
-	out_if = lp_match(&(subsystem->rtable), data->ip); //output interface
+	uint32_t ip = ntohl(data->ip);
+	
+	out_if = lp_match(&(subsystem->rtable), ip); //output interface
 	if(out_if == NULL) return;
 
 	uint16_t identifier = rand() % 0xffff;
@@ -731,20 +734,20 @@ void cli_traceroute( gross_ip_t* data ) {
 	node->fd = fd; // global fd
 	node->identifier = identifier;
 	node->seqNum = seqNum;
-	node->pingIP = data->ip;
+	node->pingIP = ip;
 	node->lastTTL = 0;
 	strcpy(node->interface, out_if);
 	node->isTraceroute = 1;
 	
 	uint8_t ipStr[4];
-	int2byteIP(data->ip, ipStr);
+	int2byteIP(ip, ipStr);
 	sprintf(buf, "Traceroute to %u.%u.%u.%u\n", ipStr[0], ipStr[1], ipStr[2], ipStr[3]);
 	writenf(fd, buf);
 
 	pthread_mutex_lock(&ping_lock);
 		node->next = pingListHead;	
 		pingListHead = node;
-		sendICMPEchoRequest(out_if, data->ip, identifier, seqNum, &node->time, 4);
+		sendICMPEchoRequest(out_if, ip, identifier, seqNum, &node->time, 4);
 	pthread_mutex_unlock(&ping_lock);
 
 	free(out_if);

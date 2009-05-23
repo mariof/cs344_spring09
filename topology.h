@@ -7,7 +7,7 @@
 
 #include "routingTable.h"
 
-#define LSUINT 5
+#define LSUINT 30
 #define LSU_TIMEOUT (3*LSUINT)
 
 typedef struct nbr {
