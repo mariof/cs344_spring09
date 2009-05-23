@@ -514,20 +514,24 @@ uint32_t getNextHopIP(uint32_t ip){
 }
 
 // Sends out packet to next hop ip address "ip" out the "interface". Packet has to have a placeholder for Ethernet header. Packet is just borrowed (not destroyed here)
+// interface parameter is ignored, output if is calculated from the IP
 void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, uint8_t* packet, unsigned len){
 	int i,j;
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
+	char * out_if = lp_match(&(subsystem->rtable), ip); // make sure output interface is correct
+
 	// find the interface by name
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){
-		if (!strcmp(interface, subsystem->ifaces[i].name))
+		if (!strcmp(out_if, subsystem->ifaces[i].name))
 			break;
 	}
 	pthread_rwlock_unlock(&subsystem->if_lock);
 	
 	if (i >= subsystem->num_ifaces){
 		errorMsg("Given interfaces does not exist");
+		free(out_if);
 		return;
 	}
 
@@ -535,6 +539,7 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	if (subsystem->ifaces[i].enabled == 0){
 		//errorMsg("Given interface is disabled");
 		pthread_rwlock_unlock(&subsystem->if_lock);
+		free(out_if);
 		return;		
 	}			
 	uint8_t *myMAC = subsystem->ifaces[i].addr;
@@ -553,17 +558,17 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	if(dstMAC){
 		dbgMsg("Sending packet");
 		for (i = 0; i < 6; i++) packet[i] = dstMAC[i];
-		sr_integ_low_level_output(sr, packet, len, interface);	
+		sr_integ_low_level_output(sr, packet, len, out_if);	
 		free(dstMAC);	
 	}
 	else{ // send out ARP and queue the packet
 		dbgMsg("Queueing packet");
-		sendARPrequest(sr, interface, ip);
-		queuePacket(packet, len, interface, ip);
+		sendARPrequest(sr, out_if, ip);
+		queuePacket(packet, len, out_if, ip);
 	}	
+	
+	free(out_if);
 }
-
-
 
 //////////////////////////////
 // test functions
