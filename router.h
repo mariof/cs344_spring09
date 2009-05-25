@@ -47,6 +47,8 @@ struct sr_router{
 	arpTreeNode *arpTree;
 	rtableNode *rtable;
 	int num_ifaces;
+	pthread_mutex_t mode_lock;
+	int mode; // 0 - normal; 1 - multipath; 2 - fast reroute; 3 - both
 	struct sr_vns_if* ifaces;
 	pthread_rwlock_t if_lock;
 	struct threadWorker* poolHead;
@@ -72,6 +74,9 @@ char* getIfName(uint32_t ip);
 char* getIfNameFromMAC(uint8_t *mac);
 void writeARPCache(arpTreeNode *node, int *index);
 void writeRoutingTable();
+int setMultipath(int multipath);
+int setFastReroute(int fast);
+int getMode();
 
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);

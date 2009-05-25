@@ -440,7 +440,7 @@ void sendLSU(){
 			pthread_mutex_lock(&rtable_lock);
  		   	rtableNode *rtable = subsystem->rtable;
     		while(rtable){
-	    		if(rtable->ip == 0 && rtable->netmask == 0 && rtable->is_static && !strcmp(rtable->output_if, getIfName(iface->ip))){
+	    		if(rtable->ip == 0 && rtable->netmask == 0 && rtable->is_static && !strcmp(rtable->output_if[0], getIfName(iface->ip))){
 					advCnt++;
 					break;
 				}
@@ -511,7 +511,7 @@ void sendLSU(){
 			pthread_mutex_lock(&rtable_lock);
  		   	rtableNode *rtable = subsystem->rtable;
     		while(rtable){
-	    		if(rtable->ip == 0 && rtable->netmask == 0 && rtable->is_static && !strcmp(rtable->output_if, getIfName(iface->ip))){
+	    		if(rtable->ip == 0 && rtable->netmask == 0 && rtable->is_static && !strcmp(rtable->output_if[0], getIfName(iface->ip))){
 					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // subnet
 					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // mask
 					*((uint32_t*)&packet[i]) = htonl(0); i+=4; // router ID							

@@ -45,6 +45,7 @@ void sr_integ_init(struct sr_instance* sr)
     struct sr_router* subsystem = (struct sr_router*)malloc(sizeof(struct sr_router));
  	assert(subsystem);
  	subsystem->num_ifaces = 0;
+    subsystem->mode = 0;
  	subsystem->ifaces = NULL;
     sr_set_subsystem(sr, subsystem);
 
@@ -60,6 +61,9 @@ void sr_integ_init(struct sr_instance* sr)
     
     writeReg(&netFPGA, CPCI_REG_CTRL, 0x00010100);
     sleep(2); // take a nap
+    
+    writeReg(&netFPGA, ROUTER_OP_LUT_MULTIPATH_ENABLE_REG, 0x0);
+    writeReg(&netFPGA, ROUTER_OP_LUT_FAST_REROUTE_ENABLE_REG, 0x0);
 
     pthread_mutex_init(&ifRegLock, NULL);
     pthread_mutex_init(&filtRegLock, NULL);
@@ -74,7 +78,7 @@ void sr_integ_init(struct sr_instance* sr)
     pthread_mutex_init(&rtable_lock, NULL);
     pthread_mutex_init(&ping_lock, NULL);
     pthread_rwlock_init(&subsystem->if_lock, NULL);
-
+	pthread_mutex_init(&subsystem->mode_lock, NULL);
     
     subsystem->arpQueue = NULL;
     subsystem->arpList = NULL;

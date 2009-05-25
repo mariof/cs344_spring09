@@ -702,7 +702,10 @@ void fill_rtable(rtableNode **head)
 		    nm_32 += (uint32_t)nm[i];
 		}
 		printf("%x  %x  %x  %s\n", ip_32, gw_32, nm_32, output_if);
-		insert_rtable_node(head, ip_32, nm_32, gw_32, output_if, 1);
+	    char *tmp_if = (char*)malloc(sizeof(char)*SR_NAMELEN);
+	    strcpy(tmp_if, output_if);
+		insert_rtable_node(head, ip_32, nm_32, &gw_32, &tmp_if, 1, 1);
+		free(tmp_if);
 		ip_32 = gw_32 = nm_32 = 0;
     }
 
@@ -805,6 +808,71 @@ int router_is_interface_enabled( struct sr_instance* sr, void* intf ) {
     return interface->enabled;
 }
 
+// enable/disable multipath
+// returns router mode, or -1 on error
+int setMultipath(int multipath){
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	pthread_mutex_lock(&subsystem->mode_lock);
+	subsystem->mode &= ~0x1;
+	if(multipath){
+		subsystem->mode |= 0x1;
+		#ifdef _CPUMODE_
+	    writeReg(&netFPGA, ROUTER_OP_LUT_MULTIPATH_ENABLE_REG, 0x1);
+		#endif //_CPUMODE_
+	}
+	else{
+		#ifdef _CPUMODE_
+	    writeReg(&netFPGA, ROUTER_OP_LUT_MULTIPATH_ENABLE_REG, 0x0);
+		#endif //_CPUMODE_
+	}
+	pthread_mutex_unlock(&subsystem->mode_lock);
+	return getMode();
+}
+// enable/disable fast reroute
+// returns router mode, or -1 on error
+int setFastReroute(int fast){
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	pthread_mutex_lock(&subsystem->mode_lock);
+	subsystem->mode &= ~0x2;
+	if(fast){
+		subsystem->mode |= 0x2;
+		#ifdef _CPUMODE_
+	    writeReg(&netFPGA, ROUTER_OP_LUT_FAST_REROUTE_ENABLE_REG, 0x1);
+		#endif //_CPUMODE_
+	}
+	else{
+		#ifdef _CPUMODE_
+	    writeReg(&netFPGA, ROUTER_OP_LUT_FAST_REROUTE_ENABLE_REG, 0x0);
+		#endif //_CPUMODE_	
+	}
+	pthread_mutex_unlock(&subsystem->mode_lock);
+	return getMode();
+}
+// returns router mode
+int getMode(){
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	int retVal;
+	uint32_t multipath_val, fast_val;
+
+	pthread_mutex_lock(&subsystem->mode_lock);
+
+	#ifdef _CPUMODE_
+	readReg(&netFPGA, ROUTER_OP_LUT_MULTIPATH_ENABLE_REG, &multipath_val);
+    readReg(&netFPGA, ROUTER_OP_LUT_FAST_REROUTE_ENABLE_REG, &fast_val);
+	subsystem->mode = (fast_val < 1) + multipath_val;
+	#endif //_CPUMODE_
+
+	retVal = subsystem->mode;
+	pthread_mutex_unlock(&subsystem->mode_lock);
+
+	return retVal;
+}
 
 #ifdef _CPUMODE_
 
@@ -926,18 +994,19 @@ void writeRoutingTable(){
 		if(index < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH){
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_IP_REG, rtable->ip );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_MASK_REG, rtable->netmask );
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, rtable->gateway );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, rtable->gateway[0] );
 			
-			char *name;
-			name = getIfNameFromMAC(&mac[3][0]);
-			if(name) ifs |= 0x40 * ( strcmp(name, rtable->output_if) == 0 );
-			name = getIfNameFromMAC(&mac[2][0]);
-			if(name) ifs |= 0x10 * ( strcmp(name, rtable->output_if) == 0 );
-			name = getIfNameFromMAC(&mac[1][0]);
-			if(name) ifs |= 0x04 * ( strcmp(name, rtable->output_if) == 0 );
-			name = getIfNameFromMAC(&mac[0][0]);
-			if(name) ifs |= 0x01 * ( strcmp(name, rtable->output_if) == 0 );
-			
+			for(i = 0; i < rtable->out_cnt; i++){
+				char *name;
+				name = getIfNameFromMAC(&mac[3][0]);
+				if(name) ifs |= 0x40 * ( strcmp(name, rtable->output_if[i]) == 0 );
+				name = getIfNameFromMAC(&mac[2][0]);
+				if(name) ifs |= 0x10 * ( strcmp(name, rtable->output_if[i]) == 0 );
+				name = getIfNameFromMAC(&mac[1][0]);
+				if(name) ifs |= 0x04 * ( strcmp(name, rtable->output_if[i]) == 0 );
+				name = getIfNameFromMAC(&mac[0][0]);
+				if(name) ifs |= 0x01 * ( strcmp(name, rtable->output_if[i]) == 0 );
+			}			
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, ifs );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR_REG, index++ );		
 		}

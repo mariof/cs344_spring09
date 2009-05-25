@@ -297,19 +297,27 @@ void cli_show_ip_route() {
     struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
     rtableNode *node = subsystem->rtable;
     uint8_t ip[4], gw[4], nm[4];
+    int i;
     
     cli_send_str("\nRouting table:\n");
     while(node != NULL) {
 		int2byteIP(node->ip, ip);
-		int2byteIP(node->gateway, gw);
+		int2byteIP(node->gateway[0], gw);
 		int2byteIP(node->netmask, nm);
-		sprintf(buf, "IP:%d.%d.%d.%d  Gateway:%d.%d.%d.%d  Netmask:%d.%d.%d.%d  IF:%s Static:%d\n", 
+		sprintf(buf, "IP:%d.%d.%d.%d  Netmask:%d.%d.%d.%d  Gateway:%d.%d.%d.%d  IF:%s Static:%d\n", 
 			    ip[0], ip[1], ip[2], ip[3],
-			    gw[0], gw[1], gw[2], gw[3],
 			    nm[0], nm[1], nm[2], nm[3],
-			    node->output_if, node->is_static);
-		node = node->next;
+			    gw[0], gw[1], gw[2], gw[3],
+			    node->output_if[0], node->is_static);
 	    cli_send_str( buf );
+	    for( i = 1; i < node->out_cnt; i++){
+			int2byteIP(node->gateway[i], gw);
+			sprintf(buf, "\t\t Multipath: \t Gateway:%u.%u.%u.%u \t IF:%s\n", 
+				    gw[0], gw[1], gw[2], gw[3],
+				    node->output_if[i]);
+		    cli_send_str( buf );	    
+	    }
+		node = node->next;
     }
 }
 
@@ -354,7 +362,7 @@ void cli_show_ospf_neighbors() {
 			struct pwospf_neighbor *node = pw_if->neighbor_list;
 			while(node){
 				int2byteIP(node->ip, ip);
-				sprintf(buf, "\tRouterID:%u  IP:%d.%d.%d.%d\n", 
+				sprintf(buf, "\tRouterID:%x  IP:%d.%d.%d.%d\n", 
 					    node->id,
 					    ip[0], ip[1], ip[2], ip[3]);
 			    cli_send_str( buf );
@@ -377,13 +385,13 @@ void cli_show_ospf_topo() {
 	rnode = topo_head;
 	
 	while(rnode){
-		sprintf(buf, "RouterID:%u, last seq_num:%u, links:\n", rnode->router_id, rnode->last_seq);
+		sprintf(buf, "RouterID:%x, last seq_num:%u, links:\n", rnode->router_id, rnode->last_seq);
 		cli_send_str(buf);
 		
 		lsu_ad *lnode = rnode->ads;
 		while(lnode){
 			int2byteIP(lnode->subnet, ip);
-			sprintf(buf, "\tRouterID:%u, subnet:%u.%u.%u.%u\n", lnode->router_id, ip[0], ip[1], ip[2], ip[3]);
+			sprintf(buf, "\tRouterID:%x, subnet:%u.%u.%u.%u\n", lnode->router_id, ip[0], ip[1], ip[2], ip[3]);
 			cli_send_str(buf);
 			lnode = lnode->next;
 		}
