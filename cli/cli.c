@@ -26,11 +26,13 @@
 	#define STR_ARP_CACHE_MAX_LEN 1024
 	#define STR_INTFS_HW_MAX_LEN 1024
 	#define STR_RTABLE_MAX_LEN 1024
+	#define STR_GWTABLE_MAX_LEN 1024
 
 	void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len );
 	void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len );
 	void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len );
 	void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len );
+	void gw_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len );
 
 #endif /* _CPUMODE_ */
 
@@ -235,6 +237,8 @@ void cli_show_hw_intf() {
 
 void cli_show_hw_route() {
     char buf[STR_RTABLE_MAX_LEN];
+    gw_hw_to_string( SR, *pverbose, buf, STR_GWTABLE_MAX_LEN );
+    cli_send_str( buf );
     rtable_hw_to_string( SR, *pverbose, buf, STR_RTABLE_MAX_LEN );
     cli_send_str( buf );
 }
@@ -312,7 +316,7 @@ void cli_show_ip_route() {
 	    cli_send_str( buf );
 	    for( i = 1; i < node->out_cnt; i++){
 			int2byteIP(node->gateway[i], gw);
-			sprintf(buf, "\t\t Multipath: \t Gateway:%u.%u.%u.%u \t IF:%s\n", 
+			sprintf(buf, "-- Multipath: \t\t\t\t Gateway:%u.%u.%u.%u  IF:%s\n", 
 				    gw[0], gw[1], gw[2], gw[3],
 				    node->output_if[i]);
 		    cli_send_str( buf );	    
@@ -447,10 +451,10 @@ void cli_manip_ip_arp_add( gross_arp_t* data ) {
     char ip[STRLEN_IP];
     char mac[STRLEN_MAC];
 
-    ip_to_string( ip, data->ip );
+    ip_to_string( ip, ntohl(data->ip) );
     mac_to_string( mac, data->mac );
 
-    if( arp_cache_static_entry_add( SR, data->ip, data->mac ) )
+    if( arp_cache_static_entry_add( SR, ntohl(data->ip), data->mac ) )
         cli_send_strs( 5, "Added translation of ", ip, " <-> ", mac, " to the static ARP cache\n" );
     else
         cli_send_strs( 5, "Error: Unable to add a translation of ", ip, " <-> ", mac,
@@ -460,8 +464,8 @@ void cli_manip_ip_arp_add( gross_arp_t* data ) {
 void cli_manip_ip_arp_del( gross_arp_t* data ) {
     char ip[STRLEN_IP];
 
-    ip_to_string( ip, data->ip );
-    if( arp_cache_static_entry_remove( SR, data->ip ) )
+    ip_to_string( ip, ntohl(data->ip) );
+    if( arp_cache_static_entry_remove( SR, ntohl(data->ip) ) )
         cli_send_strs( 3, "Removed ", ip, " from the ARP cache\n" );
     else
         cli_send_strs( 3, "Error: ", ip, " was not a static ARP cache entry\n" );
@@ -594,13 +598,13 @@ void cli_manip_ip_route_add( gross_route_t* data ) {
         cli_send_strs( 3, "Error: no interface with the name ",
                        data->intf_name, " exists.\n" );
     else {
-        rtable_route_add(SR, data->dest, data->gw, data->mask, intf, 1);
+        rtable_route_add(SR, ntohl(data->dest), ntohl(data->gw), ntohl(data->mask), intf, 1);
         cli_send_str( "The route has been added.\n" );
     }
 }
 
 void cli_manip_ip_route_del( gross_route_t* data ) {
-    if( rtable_route_remove( SR, data->dest, data->mask, 1 ) )
+    if( rtable_route_remove( SR, ntohl(data->dest), ntohl(data->mask), 1 ) )
         cli_send_str( "The route has been removed.\n" );
     else
         cli_send_str( "That route does not exist.\n" );
@@ -926,6 +930,11 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 	pthread_mutex_unlock(&filtRegLock);
 
 }
+
+void gw_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
+	// TODO: print Gateway table
+}
+
 void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
 	char tmp[256];
 	uint32_t subnet, mask, gw, ifs;
@@ -964,3 +973,209 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 	pthread_mutex_unlock(&routeRegLock);
 }
 #endif /* _CPUMODE_ */
+
+
+/* Advanced Feature Extension */
+void cli_adv_set_both( gross_option_t* data ){   	
+   	setMultipath(data->on);
+    setFastReroute(data->on);
+    cli_adv_show_mode();
+   	update_rtable();
+}
+void cli_adv_show_mode(){
+    char buf[STR_HW_INFO_MAX_LEN];
+
+	int mode = getMode();
+	
+	if( mode == -1){
+		cli_send_str("Mode error!\n");
+		return;
+	}
+    
+    if( mode & 0x1 )
+	    sprintf(buf, "Multipath is ON\n");
+    else
+	    sprintf(buf, "Multipath is OFF\n");
+    
+    cli_send_str( buf );
+
+    if( mode & 0x2 )
+	    sprintf(buf, "Fast Reroute is ON\n");
+    else
+	    sprintf(buf, "Fast Reroute is OFF\n");
+    
+    cli_send_str( buf );
+
+}
+void cli_adv_set_multi( gross_option_t* data ){
+    char buf[STR_HW_INFO_MAX_LEN];
+    
+    int mode = setMultipath(data->on);
+
+	if( mode == -1){
+		cli_send_str("Mode error!\n");
+		return;
+	}
+    
+    if( mode & 0x1 )
+	    sprintf(buf, "Multipath is ON\n");
+    else
+	    sprintf(buf, "Multipath is OFF\n");
+    
+    cli_send_str( buf );
+    update_rtable();
+}
+void cli_adv_set_fast( gross_option_t* data ){
+    char buf[STR_HW_INFO_MAX_LEN];
+   
+    int mode = setFastReroute(data->on);
+    
+	if( mode == -1){
+		cli_send_str("Mode error!\n");
+		return;
+	}
+    
+    if( mode & 0x2 )
+	    sprintf(buf, "Fast Reroute is ON\n");
+    else 
+	    sprintf(buf, "Fast Reroute is OFF\n");
+    
+    cli_send_str( buf );
+	update_rtable();
+}
+void cli_adv_show_stats(){
+    char buf[STR_HW_INFO_MAX_LEN];
+    char *if_name;
+	uint32_t mac_hi, mac_lo;
+	uint8_t mac[4][6];
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	unsigned val;
+
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+	pthread_mutex_lock(&ifRegLock);
+	
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO_REG, &mac_lo);
+	mac[0][0] = (mac_hi >> 8) & 0xFF;
+	mac[0][1] = (mac_hi) & 0xFF;
+	mac[0][2] = (mac_lo >> 24) & 0xFF;
+	mac[0][3] = (mac_lo >> 16) & 0xFF;
+	mac[0][4] = (mac_lo >> 8) & 0xFF;
+	mac[0][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO_REG, &mac_lo);
+	mac[1][0] = (mac_hi >> 8) & 0xFF;
+	mac[1][1] = (mac_hi) & 0xFF;
+	mac[1][2] = (mac_lo >> 24) & 0xFF;
+	mac[1][3] = (mac_lo >> 16) & 0xFF;
+	mac[1][4] = (mac_lo >> 8) & 0xFF;
+	mac[1][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO_REG, &mac_lo);
+	mac[2][0] = (mac_hi >> 8) & 0xFF;
+	mac[2][1] = (mac_hi) & 0xFF;
+	mac[2][2] = (mac_lo >> 24) & 0xFF;
+	mac[2][3] = (mac_lo >> 16) & 0xFF;
+	mac[2][4] = (mac_lo >> 8) & 0xFF;
+	mac[2][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO_REG, &mac_lo);
+	mac[3][0] = (mac_hi >> 8) & 0xFF;
+	mac[3][1] = (mac_hi) & 0xFF;
+	mac[3][2] = (mac_lo >> 24) & 0xFF;
+	mac[3][3] = (mac_lo >> 16) & 0xFF;
+	mac[3][4] = (mac_lo >> 8) & 0xFF;
+	mac[3][5] = (mac_lo) & 0xFF;
+
+	pthread_mutex_unlock(&ifRegLock);
+	
+	cli_send_str("Statistics: \n\n");
+	
+	if_name = getIfNameFromMAC(mac[0]);
+	sprintf(buf, "Interface: %s\n", if_name);
+	cli_send_str(buf);	
+	readReg(&netFPGA, MAC_GRP_0_RX_QUEUE_NUM_PKTS_STORED_REG, &val);
+	sprintf(buf, "Num pkts received:           %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_0_RX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes received:          %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_0_TX_QUEUE_NUM_PKTS_SENT_REG, &val);
+	sprintf(buf, "Num pkts sent:               %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_0_TX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes sent:              %u\n", val);
+	cli_send_str(buf);
+	cli_send_str("\n");	
+
+	if_name = getIfNameFromMAC(mac[1]);
+	sprintf(buf, "Interface: %s\n", if_name);
+	cli_send_str(buf);	
+	readReg(&netFPGA, MAC_GRP_1_RX_QUEUE_NUM_PKTS_STORED_REG, &val);
+	sprintf(buf, "Num pkts received:           %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_1_RX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes received:          %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_1_TX_QUEUE_NUM_PKTS_SENT_REG, &val);
+	sprintf(buf, "Num pkts sent:               %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_1_TX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes sent:              %u\n", val);
+	cli_send_str(buf);
+	cli_send_str("\n");	
+
+	if_name = getIfNameFromMAC(mac[2]);
+	sprintf(buf, "Interface: %s\n", if_name);
+	cli_send_str(buf);	
+	readReg(&netFPGA, MAC_GRP_2_RX_QUEUE_NUM_PKTS_STORED_REG, &val);
+	sprintf(buf, "Num pkts received:           %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_2_RX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes received:          %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_2_TX_QUEUE_NUM_PKTS_SENT_REG, &val);
+	sprintf(buf, "Num pkts sent:               %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_2_TX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes sent:              %u\n", val);
+	cli_send_str(buf);
+	cli_send_str("\n");	
+
+	if_name = getIfNameFromMAC(mac[3]);
+	sprintf(buf, "Interface: %s\n", if_name);
+	cli_send_str(buf);	
+	readReg(&netFPGA, MAC_GRP_3_RX_QUEUE_NUM_PKTS_STORED_REG, &val);
+	sprintf(buf, "Num pkts received:           %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_3_RX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes received:          %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_3_TX_QUEUE_NUM_PKTS_SENT_REG, &val);
+	sprintf(buf, "Num pkts sent:               %u\n", val);
+	cli_send_str(buf);
+	readReg(&netFPGA, MAC_GRP_3_TX_QUEUE_NUM_BYTES_PUSHED_REG, &val);
+	sprintf(buf, "Num bytes sent:              %u\n", val);
+	cli_send_str(buf);
+	cli_send_str("\n");	
+	
+	pthread_rwlock_unlock(&subsystem->if_lock);
+
+}
+
+void cli_manip_ip_route_addm( gross_route_t* data ) {
+    void *intf;
+    intf = router_lookup_interface_via_name( SR, data->intf_name );
+    if( !intf )
+        cli_send_strs( 3, "Error: no interface with the name ",
+                       data->intf_name, " exists.\n" );
+    else {
+        rtable_route_addm(SR, ntohl(data->dest), ntohl(data->gw), ntohl(data->mask), intf, 1);
+        cli_send_str( "The route has been added.\n" );
+    }
+}

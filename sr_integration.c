@@ -171,6 +171,9 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 
 	sys_thread_new(topologyRefresh, NULL);
 
+	// put own interfaces in the routing table
+	update_rtable();
+
 	// Load thread pool system
 	initThreadPool();
 	

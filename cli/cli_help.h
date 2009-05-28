@@ -61,6 +61,11 @@ typedef enum cli_help_t {
       HELP_ACTION_PING,
       HELP_ACTION_SHUTDOWN,
       HELP_ACTION_TRACE,
+      
+    HELP_ADV,
+      HELP_ADV_MODE,
+      HELP_ADV_STATS,
+      HELP_ADV_ROUTE_ADDM,
 
     HELP_OPT,
       HELP_OPT_VERBOSE

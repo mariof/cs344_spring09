@@ -92,6 +92,7 @@ static void run_command();
 %token  T_ADD T_DEL T_UP T_DOWN T_PURGE T_STATIC T_DYNAMIC T_ABOUT
 %token  T_PING T_TRACE T_HELP T_EXIT T_SHUTDOWN T_FLOOD
 %token  T_SET T_UNSET T_OPTION T_VERBOSE T_DATE
+%token  T_MODE T_MULTIPATH T_ADV T_STATS T_FAST T_ADDM
 
 /* Terminals which evaluate to some attribute value */
 %token   <intVal>       TAV_INT
@@ -108,6 +109,7 @@ Command : ShowCommand
         | ManipCommand
         | ActionCommand
         | OptionCommand
+        | AdvCommand
         | {ERR_NO_USAGE("Unknown Command")} error
         | /* do nothing */
         ;
@@ -335,6 +337,11 @@ ActionHelp : HelpOrQ                              { HELP(HELP_ACTION_HELP); }
            | HelpOrQ T_SET T_VERBOSE              { HELP(HELP_OPT_VERBOSE); }
            | HelpOrQ T_UNSET                      { HELP(HELP_OPT); }
            | HelpOrQ T_UNSET T_VERBOSE            { HELP(HELP_OPT_VERBOSE); }
+           | HelpOrQ T_ADV                        { HELP(HELP_ADV); }
+           | HelpOrQ T_ADV T_MODE                 { HELP(HELP_ADV_MODE); }
+           | HelpOrQ T_ADV T_STATS                { HELP(HELP_ADV_STATS); }
+           | HelpOrQ T_ADV T_ROUTE                { HELP(HELP_ADV_ROUTE_ADDM); }
+           | HelpOrQ T_ADV T_ROUTE T_ADDM         { HELP(HELP_ADV_ROUTE_ADDM); }
            | HelpOrQ {ERR_IGNORE} error           { HELP(HELP_ACTION_HELP); }
            ;
 
@@ -359,6 +366,33 @@ ShowTypeOption : /* empty: show all */            { SETC_FUNC0(cli_show_opt); }
                | T_VERBOSE TMIorQ                 { HELP(HELP_SHOW_OPT_VERBOSE); }
                | WrongOrQ                         { HELP(HELP_SHOW_OPT); }
                ;
+               
+AdvCommand : T_ADV AdvSubCommand
+           ;
+           
+AdvSubCommand : /* empty: show mode */            { SETC_FUNC0(cli_adv_show_mode); }
+              | T_MODE AdvSubMode
+              | T_STATS                           { SETC_FUNC0(cli_adv_show_stats); }
+              | T_ROUTE T_ADDM RouteAddOrQM
+              ;
+              
+AdvSubMode : /* empty: show mode */               { SETC_FUNC0(cli_adv_show_mode); }
+           | T_MULTIPATH OptionAction             { SETC_OPT(cli_adv_set_multi); }
+           | T_FAST OptionAction                  { SETC_OPT(cli_adv_set_fast); }
+           | OptionAction						  { SETC_OPT(cli_adv_set_both); }
+           ;
+           
+RouteAddOrQM : HelpOrQ                               { HELP(HELP_ADV_ROUTE_ADDM); }
+             | {ERR_IP} error                        { HELP(HELP_ADV_ROUTE_ADDM); }
+             | TAV_IP {ERR_IP} error                 { HELP(HELP_ADV_ROUTE_ADDM); }
+             | TAV_IP TAV_IP {ERR_IP} error          { HELP(HELP_ADV_ROUTE_ADDM); }
+             | TAV_IP TAV_IP TAV_IP {ERR_INTF} error { HELP(HELP_ADV_ROUTE_ADDM); }
+             | TAV_IP TAV_IP TAV_IP TAV_STR          { SETC_RT_ADD(cli_manip_ip_route_addm,$1,$2,$3,$4); }
+             | TAV_IP TAV_IP TAV_IP TAV_STR TMIorQ   { HELP(HELP_ADV_ROUTE_ADDM); }
+             ;
+
+
+               
 %%
 
 static void clear_command() {

@@ -519,7 +519,18 @@ void sendIPpacket(struct sr_instance* sr, const char* interface, uint32_t ip, ui
 	int i,j;
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
+	if(isMyIP(ip)){
+		dbgMsg("Cannot send to myself!");
+		return;
+	}
+
 	char * out_if = lp_match(&(subsystem->rtable), ip); // make sure output interface is correct
+
+	if (out_if == NULL){
+		dbgMsg("Network unreachable, packet not sent!");
+		free(out_if);
+		return;
+	}
 
 	// find the interface by name
 	pthread_rwlock_rdlock(&subsystem->if_lock);
@@ -673,7 +684,7 @@ void printARPCache() {
 void fill_rtable(rtableNode **head)
 {
     int ip[4], gw[4], nm[4];
-    char output_if[SR_NAMELEN];
+    char output_if[SR_NAMELEN+4];
     uint32_t ip_32 = 0, gw_32 = 0, nm_32 = 0;
     int i;
     FILE *rtable_file = fopen("rtable", "r");
@@ -682,17 +693,13 @@ void fill_rtable(rtableNode **head)
 	*head = NULL;
 	
     while (!feof(rtable_file)) {
+    	int is_multipath = 0;
 		if (fscanf(rtable_file, "%d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s", 
 			    &ip[0], &ip[1], &ip[2], &ip[3],
 			    &gw[0], &gw[1], &gw[2], &gw[3],
 			    &nm[0], &nm[1], &nm[2], &nm[3],
 			    output_if) != 13)
 		    break;
-		printf("Added to the routing table : %d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s\n", 
-			    ip[0], ip[1], ip[2], ip[3],
-			    gw[0], gw[1], gw[2], gw[3],
-			    nm[0], nm[1], nm[2], nm[3],
-			    output_if);
 		for(i = 0; i < 4; i++) {
 		    ip_32 = ip_32 << 8;
 		    ip_32 += (uint32_t)ip[i];
@@ -701,10 +708,25 @@ void fill_rtable(rtableNode **head)
 		    nm_32 = nm_32 << 8;
 		    nm_32 += (uint32_t)nm[i];
 		}
+		int if_len = strlen(output_if);
+		if(if_len > 4){
+			if( strcmp(&output_if[if_len-4], "...m") == 0 ){
+				output_if[if_len-4] = 0;
+				is_multipath = 1;
+			}
+		}
+		printf("Added to the routing table : %d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s\n", 
+			    ip[0], ip[1], ip[2], ip[3],
+			    gw[0], gw[1], gw[2], gw[3],
+			    nm[0], nm[1], nm[2], nm[3],
+			    output_if);
 		printf("%x  %x  %x  %s\n", ip_32, gw_32, nm_32, output_if);
 	    char *tmp_if = (char*)malloc(sizeof(char)*SR_NAMELEN);
 	    strcpy(tmp_if, output_if);
-		insert_rtable_node(head, ip_32, nm_32, &gw_32, &tmp_if, 1, 1);
+	    if(is_multipath)	
+			merge_rtable_node(head, ip_32, nm_32, &gw_32, &tmp_if, 1, 1);
+	    else
+			insert_rtable_node(head, ip_32, nm_32, &gw_32, &tmp_if, 1, 1);
 		free(tmp_if);
 		ip_32 = gw_32 = nm_32 = 0;
     }
@@ -865,7 +887,7 @@ int getMode(){
 	#ifdef _CPUMODE_
 	readReg(&netFPGA, ROUTER_OP_LUT_MULTIPATH_ENABLE_REG, &multipath_val);
     readReg(&netFPGA, ROUTER_OP_LUT_FAST_REROUTE_ENABLE_REG, &fast_val);
-	subsystem->mode = (fast_val < 1) + multipath_val;
+	subsystem->mode = (fast_val << 1) + multipath_val;
 	#endif //_CPUMODE_
 
 	retVal = subsystem->mode;

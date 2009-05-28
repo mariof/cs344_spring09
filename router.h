@@ -48,7 +48,7 @@ struct sr_router{
 	rtableNode *rtable;
 	int num_ifaces;
 	pthread_mutex_t mode_lock;
-	int mode; // 0 - normal; 1 - multipath; 2 - fast reroute; 3 - both
+	int mode; // 0 - normal; 1 - multipath (mask 0x1); 2 - fast reroute (mask 0x2); 3 - both
 	struct sr_vns_if* ifaces;
 	pthread_rwlock_t if_lock;
 	struct threadWorker* poolHead;

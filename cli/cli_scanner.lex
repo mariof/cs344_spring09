@@ -130,6 +130,19 @@ STRING            ({BEG_STRING}\")
 "now"        { return T_DATE;      }
 "time"       { return T_DATE;      }
 
+ /* ******** Advanced Feature (mariof) ********* */
+"adv"        { return T_ADV;       }
+"advanced"   { return T_ADV;       }
+"mode"       { return T_MODE;      }
+"multi"      { return T_MULTIPATH; }
+"multipath"  { return T_MULTIPATH; }
+"fast"       { return T_FAST;      }
+"stats"      { return T_STATS;     }
+"on"         { return T_SET;       }
+"off"        { return T_UNSET;     }
+"addm"		 { return T_ADDM; 	   }
+   
+
  /* **************** Constants ***************** */
 {DEC_INTEGER}       { yylval.intVal = strtol(yytext, NULL, 10);
                       return TAV_INT; }

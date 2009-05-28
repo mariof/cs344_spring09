@@ -153,6 +153,14 @@ void cli_manip_ip_route_purge_all();
 void cli_manip_ip_route_purge_dyn();
 void cli_manip_ip_route_purge_sta();
 
+/* Advance feature extension */
+void cli_adv_show_mode();
+void cli_adv_show_stats();
+void cli_adv_set_both( gross_option_t* data );
+void cli_adv_set_multi( gross_option_t* data );
+void cli_adv_set_fast( gross_option_t* data );
+void cli_manip_ip_route_addm( gross_route_t* data );
+
 /* Display the current date and time. */
 void cli_date();
 

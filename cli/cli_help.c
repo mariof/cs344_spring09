@@ -295,6 +295,7 @@ Available Commands:\n\
     sping\n\
     strace\n\
     unset\n\
+    adv\n\
     ?\n" );
 
           case HELP_ACTION_PING:
@@ -308,6 +309,25 @@ shutdown: power off the router\n" );
           case HELP_ACTION_TRACE:
               return 0==writenstr( fd, "\
 strace <dest IP>: traceourte to <dest IP>\n" );
+
+	    case HELP_ADV:
+	        return 0==writenstr( fd, "\
+adv <mode | stats | route>: advanced feature\n" );
+          case HELP_ADV_MODE:
+              return 0==writenstr( fd, "\
+adv mode <multi | fast> <on | off>: switches advanced features on or off\n" );
+          case HELP_ADV_STATS:
+              return 0==writenstr( fd, "\
+adv stats: prints statistics\n" );
+	      case HELP_ADV_ROUTE_ADDM:
+              return 0==writenstr( fd, "\
+adv route addm <dest IP> <gateway IP> <mask IP> <interface name>: add a static multipath route to\n\
+  <dest IP> with subnet mask <mask IP> via the next hop <gateway IP> out of\n\
+  interface <interface name>. This route will be merged with any existing\n\
+  routes to create a multipath route.\n" );
+
+
+
 
 
         case HELP_OPT:
