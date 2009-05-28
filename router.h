@@ -13,6 +13,7 @@
 #include "threadPool.h"
 #include "pwospf.h"
 #include "topology.h"
+#include "gwList.h"
 
 #ifdef _CPUMODE_
 
@@ -26,6 +27,7 @@ pthread_mutex_t ifRegLock;
 pthread_mutex_t filtRegLock;
 pthread_mutex_t arpRegLock;
 pthread_mutex_t routeRegLock;
+pthread_mutex_t gwRegLock;
 
 #endif // _CPUMODE_
 
@@ -42,6 +44,7 @@ pthread_mutex_t routeRegLock;
 
 
 struct sr_router{
+	struct gwListNode* gwList;
 	struct arpQueueNode* arpQueue;
 	arpNode *arpList;
 	arpTreeNode *arpTree;

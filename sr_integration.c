@@ -69,6 +69,7 @@ void sr_integ_init(struct sr_instance* sr)
     pthread_mutex_init(&filtRegLock, NULL);
     pthread_mutex_init(&arpRegLock, NULL);
     pthread_mutex_init(&routeRegLock, NULL);
+    pthread_mutex_init(&gwRegLock, NULL);
 
 #endif // _CPUMODE_    
     
@@ -76,6 +77,7 @@ void sr_integ_init(struct sr_instance* sr)
     pthread_mutex_init(&list_lock, NULL);
     pthread_mutex_init(&queue_lock, NULL);
     pthread_mutex_init(&rtable_lock, NULL);
+    pthread_mutex_init(&gw_lock, NULL);
     pthread_mutex_init(&ping_lock, NULL);
     pthread_rwlock_init(&subsystem->if_lock, NULL);
 	pthread_mutex_init(&subsystem->mode_lock, NULL);
@@ -84,6 +86,7 @@ void sr_integ_init(struct sr_instance* sr)
     subsystem->arpList = NULL;
     subsystem->arpTree = NULL;
     subsystem->rtable = NULL;
+    subsystem->gwList = NULL;
 
 	pingListHead = NULL;
 
@@ -142,7 +145,7 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 	pthread_mutex_unlock(&ifRegLock);
 	
 	writeIPfilter();
-			
+				
 #endif // _CPUMODE_
 
     

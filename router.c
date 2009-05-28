@@ -1008,27 +1008,54 @@ void writeRoutingTable(){
 
 	pthread_mutex_unlock(&ifRegLock);
 
-
+	gwList_flush(&subsystem->gwList);
+	
 	pthread_mutex_lock(&routeRegLock);
 	rtableNode *rtable = subsystem->rtable;
 	while(rtable){
 		uint32_t ifs = 0;
+		uint32_t gws = 0;
+		int pos = -1;
 		if(index < ROUTER_OP_LUT_ROUTE_TABLE_DEPTH){
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_IP_REG, rtable->ip );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_MASK_REG, rtable->netmask );
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, rtable->gateway[0] );
 			
 			for(i = 0; i < rtable->out_cnt; i++){
 				char *name;
 				name = getIfNameFromMAC(&mac[3][0]);
-				if(name) ifs |= 0x40 * ( strcmp(name, rtable->output_if[i]) == 0 );
+				if(name && ( strcmp(name, rtable->output_if[i]) == 0 )){
+					pos = gwList_insert(&subsystem->gwList, rtable->gateway[i]);	
+					if(pos != -1){
+						ifs |= 0x40;
+						gws = (gws & ~0xFF000000) | ( ((uint32_t)(pos & 0xFF)) << 24 );					
+					}
+				}
 				name = getIfNameFromMAC(&mac[2][0]);
-				if(name) ifs |= 0x10 * ( strcmp(name, rtable->output_if[i]) == 0 );
+				if(name && ( strcmp(name, rtable->output_if[i]) == 0 )){
+					pos = gwList_insert(&subsystem->gwList, rtable->gateway[i]);	
+					if(pos != -1){
+						ifs |= 0x10;
+						gws = (gws & ~0x00FF0000) | ( ((uint32_t)(pos & 0xFF)) << 16 );					
+					}
+				}
 				name = getIfNameFromMAC(&mac[1][0]);
-				if(name) ifs |= 0x04 * ( strcmp(name, rtable->output_if[i]) == 0 );
+				if(name && ( strcmp(name, rtable->output_if[i]) == 0 )){
+					pos = gwList_insert(&subsystem->gwList, rtable->gateway[i]);	
+					if(pos != -1){
+						ifs |= 0x04;
+						gws = (gws & ~0x0000FF00) | ( ((uint32_t)(pos & 0xFF)) << 8 );					
+					}
+				}
 				name = getIfNameFromMAC(&mac[0][0]);
-				if(name) ifs |= 0x01 * ( strcmp(name, rtable->output_if[i]) == 0 );
+				if(name && ( strcmp(name, rtable->output_if[i]) == 0 )){
+					pos = gwList_insert(&subsystem->gwList, rtable->gateway[i]);	
+					if(pos != -1){
+						ifs |= 0x01;
+						gws = (gws & ~0x000000FF) | ( ((uint32_t)(pos & 0xFF)) << 0 );					
+					}
+				}
 			}			
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, gws );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, ifs );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR_REG, index++ );		
 		}
@@ -1044,9 +1071,30 @@ void writeRoutingTable(){
 		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, 0 );
 		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, 0 );
 		writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR_REG, i );		
-	}
-	
+	}	
 	pthread_mutex_unlock(&routeRegLock);
+
+	pthread_mutex_lock(&gw_lock);
+	pthread_mutex_lock(&gwRegLock);
+	index = 0;
+	struct gwListNode *gwNode = subsystem->gwList;
+	while(gwNode){
+		if(index < ROUTER_OP_LUT_GATEWAY_TABLE_DEPTH){
+			writeReg( &netFPGA, ROUTER_OP_LUT_GATEWAY_TABLE_ENTRY_IP_REG, gwNode->gw );
+			writeReg( &netFPGA, ROUTER_OP_LUT_GATEWAY_TABLE_WR_ADDR_REG, index++ );				
+		}
+		else{
+			break;
+		}
+		gwNode = gwNode->next;
+	}
+	// fill the rest of the table with 255.255.255.255 (because 0 is actually a valid gw)
+	for(i = index; i < ROUTER_OP_LUT_GATEWAY_TABLE_DEPTH; i++){
+			writeReg( &netFPGA, ROUTER_OP_LUT_GATEWAY_TABLE_ENTRY_IP_REG, 0xFFFFFFFF );
+			writeReg( &netFPGA, ROUTER_OP_LUT_GATEWAY_TABLE_WR_ADDR_REG, i );				
+	}	
+	pthread_mutex_unlock(&gwRegLock);
+	pthread_mutex_unlock(&gw_lock);
 	
 	pthread_rwlock_unlock(&subsystem->if_lock);
 

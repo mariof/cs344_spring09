@@ -61,7 +61,7 @@ libsr_base.a : $(SR_BASE_OBJS)
 
 
 #------------------------------------------------------------------------------
-SR_SRCS_MAIN = sr_main.c router.c arpCache.c arpQueue.c routingTable.c icmpMsg.c threadPool.c pwospf.c topology.c
+SR_SRCS_MAIN = sr_main.c router.c arpCache.c arpQueue.c routingTable.c icmpMsg.c threadPool.c pwospf.c topology.c gwList.c
 
 SR_SRCS_BASE = nf2util.c
 

@@ -932,7 +932,32 @@ void router_intf_hw_to_string( struct sr_instance *sr, char *buf, unsigned len )
 }
 
 void gw_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
-	// TODO: print Gateway table
+	char tmp[256];
+	uint32_t gw;
+	uint8_t strGw[4];
+	int i;
+	int strLen = 0;
+
+	// clear buffer
+	buf[0] = '\0';
+	
+	strLen += sprintf(tmp, "\nGateway table:\n");
+	if(strLen <= len) strcat(buf, tmp); 
+
+	pthread_mutex_lock(&gwRegLock);
+	for(i = 0; i < ROUTER_OP_LUT_GATEWAY_TABLE_DEPTH; i++){
+		writeReg( &netFPGA, ROUTER_OP_LUT_GATEWAY_TABLE_RD_ADDR_REG, i );				
+		readReg( &netFPGA, ROUTER_OP_LUT_GATEWAY_TABLE_ENTRY_IP_REG, &gw );
+	
+		int2byteIP(gw, strGw);
+		
+		if( gw != 0xFFFFFFFF ){
+			strLen += sprintf(	tmp, "index: %u  gw: %u.%u.%u.%u\n", i,
+								strGw[0], strGw[1], strGw[2], strGw[3] ); 
+			if(strLen <= len) strcat(buf, tmp);
+		}			
+	}	
+	pthread_mutex_unlock(&gwRegLock);
 }
 
 void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len ){
@@ -961,7 +986,7 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 		int2byteIP(gw, strGw);
 		
 		if(subnet != 0 || mask != 0 || gw != 0 || ifs != 0){
-			strLen += sprintf(	tmp, "subnet: %u.%u.%u.%u  mask: %u.%u.%u.%u  gw: %u.%u.%u.%u  interfaces: %u%u %u%u %u%u %u%u\n", 
+			strLen += sprintf(	tmp, "subnet: %u.%u.%u.%u  mask: %u.%u.%u.%u  gw: %u|%u|%u|%u  interfaces: %u%u %u%u %u%u %u%u\n", 
 								strSubnet[0], strSubnet[1], strSubnet[2], strSubnet[3],
 								strMask[0], strMask[1], strMask[2], strMask[3],
 								strGw[0], strGw[1], strGw[2], strGw[3],

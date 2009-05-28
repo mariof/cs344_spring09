@@ -308,7 +308,7 @@ void arpReplaceTree(arpTreeNode **root, arpTreeNode *newTree){
 
 #ifdef _CPUMODE_
 	pthread_rwlock_rdlock(&tree_lock);
-	if(!arpCompareTrees(oldTree, newTree)){
+	if(!arpCompareTrees(oldTree, newTree) || newTree == NULL ){
 		int index = 0;
 		int i;
 		

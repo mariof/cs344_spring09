@@ -100,6 +100,9 @@
 // Number of entrties in the destination IP filter table
 #define ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH   32
 
+// Number of entrties in the gateway table
+#define ROUTER_OP_LUT_GATEWAY_TABLE_DEPTH         32
+
 // Default MAC address for port 0
 #define ROUTER_OP_LUT_DEFAULT_MAC_0               0xcafef00d0001
 #define ROUTER_OP_LUT_DEFAULT_MAC_0_HI            0x0000cafe
@@ -445,6 +448,9 @@
 #define ROUTER_OP_LUT_DST_IP_FILTER_TABLE_ENTRY_IP_REG    0x2000088
 #define ROUTER_OP_LUT_DST_IP_FILTER_TABLE_RD_ADDR_REG     0x200008c
 #define ROUTER_OP_LUT_DST_IP_FILTER_TABLE_WR_ADDR_REG     0x2000090
+#define ROUTER_OP_LUT_GATEWAY_TABLE_ENTRY_IP_REG          0x2000094
+#define ROUTER_OP_LUT_GATEWAY_TABLE_RD_ADDR_REG           0x2000098
+#define ROUTER_OP_LUT_GATEWAY_TABLE_WR_ADDR_REG           0x200009c
 
 // Name: strip_headers (STRIP_HEADERS)
 // Description: Strip headers from data
