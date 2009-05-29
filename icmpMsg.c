@@ -1,5 +1,6 @@
 #include "router.h"
 #include "cli/socket_helper.h"
+#include "cli.h"
 #include <sys/time.h>
 
 void processICMP(const char* interface, const uint8_t* packet, unsigned len){
@@ -39,6 +40,7 @@ void processEchoReply(const uint8_t* packet, unsigned len){
 								packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15],
 								seqNum, packet[ETHERNET_HEADER_LENGTH + 8], 
 								deltaTimeMili(&tv, &node->time));
+					cli_send_prompt();
 				}
 				else{
 					writenf(node->fd, "%u   %u.%u.%u.%u   time=%.3fms\n", node->lastTTL+1,
@@ -46,6 +48,7 @@ void processEchoReply(const uint8_t* packet, unsigned len){
 								packet[ETHERNET_HEADER_LENGTH + 14], packet[ETHERNET_HEADER_LENGTH + 15], 
 								deltaTimeMili(&tv, &node->time));
 					writenf(node->fd, "Traceroute compeleted.\n");
+					cli_send_prompt();
 				}
 				if(prev){
 					prev->next = node->next;
@@ -110,9 +113,11 @@ void refreshPingList(void *dummy){
 					int2byteIP(node->pingIP, strIP);
 					if(node->isTraceroute == 0){
 						writenf(node->fd, "No Ping Reply from: %u.%u.%u.%u\n", strIP[0], strIP[1], strIP[2], strIP[3]);
+						cli_send_prompt();
 					}
 					else{
 						writenf(node->fd, "Traceroute to: %u.%u.%u.%u aborted.\n", strIP[0], strIP[1], strIP[2], strIP[3]);
+						cli_send_prompt();
 					}
 					if(prev){
 						prev->next = node->next;

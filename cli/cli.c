@@ -135,6 +135,7 @@ static void cli_send_strs( int num_args, ... ) {
 }
 
 void cli_init() {
+	is_bot = 0;
     router_shutdown = 0;
     skip_next_prompt = 0;
 }
@@ -221,18 +222,21 @@ void cli_show_hw_about() {
     char buf[STR_HW_INFO_MAX_LEN];
     router_hw_info_to_string( SR, buf, STR_HW_INFO_MAX_LEN );
     cli_send_str( buf );
+	cli_send_end();
 }
 
 void cli_show_hw_arp() {
     char buf[STR_ARP_CACHE_MAX_LEN];
     arp_cache_hw_to_string( SR, *pverbose, buf, STR_ARP_CACHE_MAX_LEN );
     cli_send_str( buf );
+	cli_send_end();
 }
 
 void cli_show_hw_intf() {
     char buf[STR_INTFS_HW_MAX_LEN];
     router_intf_hw_to_string( SR, buf, STR_INTFS_HW_MAX_LEN );
     cli_send_str( buf );
+	cli_send_end();
 }
 
 void cli_show_hw_route() {
@@ -241,6 +245,7 @@ void cli_show_hw_route() {
     cli_send_str( buf );
     rtable_hw_to_string( SR, *pverbose, buf, STR_RTABLE_MAX_LEN );
     cli_send_str( buf );
+	cli_send_end();
 }
 #endif
 
@@ -270,6 +275,7 @@ void cli_show_ip_arp() {
 	    cli_send_str( buf );
 	}
     pthread_mutex_unlock(&list_lock);
+	cli_send_end();
 }
 
 void cli_show_ip_intf() {
@@ -292,7 +298,7 @@ void cli_show_ip_intf() {
 	    cli_send_str( buf );
     }
     pthread_rwlock_unlock(&subsystem->if_lock);
-
+	cli_send_end();
 }
 
 void cli_show_ip_route() {
@@ -323,6 +329,7 @@ void cli_show_ip_route() {
 	    }
 		node = node->next;
     }
+	cli_send_end();
 }
 
 void cli_show_opt() {
@@ -376,6 +383,7 @@ void cli_show_ospf_neighbors() {
 		}
 		pw_if = pw_if->next;
     }
+	cli_send_end();
     pthread_rwlock_unlock(&subsystem->if_lock);
 }
 
@@ -402,6 +410,7 @@ void cli_show_ospf_topo() {
 	
 		rnode = rnode->next;
 	}
+	cli_send_end();
 
 	pthread_mutex_unlock(&topo_lock);
 
@@ -436,6 +445,7 @@ void cli_show_vns_topo() {
     char buf[7];
     snprintf( buf, 7, "%u\n", SR->topo_id );
     cli_send_str( buf );
+	cli_send_end();
 }
 
 void cli_show_vns_user() {
@@ -459,6 +469,7 @@ void cli_manip_ip_arp_add( gross_arp_t* data ) {
     else
         cli_send_strs( 5, "Error: Unable to add a translation of ", ip, " <-> ", mac,
                        " to the static ARP cache -- try removing another static entry first.\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_arp_del( gross_arp_t* data ) {
@@ -469,6 +480,7 @@ void cli_manip_ip_arp_del( gross_arp_t* data ) {
         cli_send_strs( 3, "Removed ", ip, " from the ARP cache\n" );
     else
         cli_send_strs( 3, "Error: ", ip, " was not a static ARP cache entry\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_arp_purge_all() {
@@ -490,6 +502,7 @@ void cli_manip_ip_arp_purge_all() {
 
     cli_send_strs( 8, "Removed ", str_countT, whatT,
                    " (", str_countS, " static", whatS, ") from the ARP cache\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_arp_purge_dyn() {
@@ -501,6 +514,7 @@ void cli_manip_ip_arp_purge_dyn() {
     what = ( count == 1 ) ? " entry" : " entries";
     snprintf( str_count, 11, "%u", count );
     cli_send_strs( 4, "Removed ", str_count, what, " from the ARP cache\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_arp_purge_sta() {
@@ -512,6 +526,7 @@ void cli_manip_ip_arp_purge_sta() {
     what = ( count == 1 ) ? " entry" : " entries";
     snprintf( str_count, 11, "%u", count );
     cli_send_strs( 5, "Removed ", str_count, " static", what, " from the ARP cache\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_intf_set( gross_intf_t* data ) {
@@ -542,6 +557,7 @@ void cli_manip_ip_intf_set( gross_intf_t* data ) {
     }
     else
         cli_send_strs( 2, data->intf_name, " is not a valid interface\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_intf_set_enabled( const char* intf_name, int enabled ) {
@@ -567,10 +583,12 @@ void cli_manip_ip_intf_set_enabled( const char* intf_name, int enabled ) {
 
 void cli_manip_ip_intf_down( gross_intf_t* data ) {
     cli_manip_ip_intf_set_enabled( data->intf_name, 0 );
+	cli_send_end();
 }
 
 void cli_manip_ip_intf_up( gross_intf_t* data ) {
     cli_manip_ip_intf_set_enabled( data->intf_name, 1 );
+	cli_send_end();
 }
 
 void cli_manip_ip_ospf_down() {
@@ -580,6 +598,7 @@ void cli_manip_ip_ospf_down() {
     }
     else
         cli_send_str( "OSPF was already disabled" );
+	cli_send_end();
 }
 
 void cli_manip_ip_ospf_up() {
@@ -589,6 +608,7 @@ void cli_manip_ip_ospf_up() {
     }
     else
         cli_send_str( "OSPF was already enabled" );
+	cli_send_end();
 }
 
 void cli_manip_ip_route_add( gross_route_t* data ) {
@@ -601,6 +621,7 @@ void cli_manip_ip_route_add( gross_route_t* data ) {
         rtable_route_add(SR, ntohl(data->dest), ntohl(data->gw), ntohl(data->mask), intf, 1);
         cli_send_str( "The route has been added.\n" );
     }
+	cli_send_end();
 }
 
 void cli_manip_ip_route_del( gross_route_t* data ) {
@@ -608,21 +629,25 @@ void cli_manip_ip_route_del( gross_route_t* data ) {
         cli_send_str( "The route has been removed.\n" );
     else
         cli_send_str( "That route does not exist.\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_route_purge_all() {
     rtable_purge_all( SR );
     cli_send_str( "All routes have been removed from the routing table.\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_route_purge_dyn() {
     rtable_purge( SR, 0 );
     cli_send_str( "All dymanic routes have been removed from the routing table.\n" );
+	cli_send_end();
 }
 
 void cli_manip_ip_route_purge_sta() {
     rtable_purge( SR, 1 );
     cli_send_str( "All static routes have been removed from the routing table.\n" );
+	cli_send_end();
 }
 
 void cli_date() {
@@ -632,11 +657,13 @@ void cli_date() {
     gettimeofday( &now, NULL );
     time_to_string( str_time, now.tv_sec );
     cli_send_str( str_time );
+	cli_send_end();
 }
 
 void cli_exit() {
     cli_send_str( "Goodbye!\n" );
     fd_alive = 0;
+	cli_send_end();
 }
 
 int cli_ping_handle_self( uint32_t ip ) {
@@ -668,7 +695,12 @@ static void cli_send_ping( int client_fd, uint32_t ip ) {
 	ip = ntohl(ip);
 	
 	out_if = lp_match(&(subsystem->rtable), ip); //output interface
-	if(out_if == NULL) return;
+	if(out_if == NULL){
+		sprintf(buf, "Network unreachable\n");
+		writenf(client_fd, buf);
+		cli_send_prompt();	
+		return;
+	}
 
 	uint16_t identifier = rand() % 0xffff;
 	uint16_t seqNum = 0;
@@ -737,7 +769,11 @@ void cli_traceroute( gross_ip_t* data ) {
 	uint32_t ip = ntohl(data->ip);
 	
 	out_if = lp_match(&(subsystem->rtable), ip); //output interface
-	if(out_if == NULL) return;
+	if(out_if == NULL){
+		cli_send_str("Network unreachable\n");
+		cli_send_prompt();	
+		return;
+	}
 
 	uint16_t identifier = rand() % 0xffff;
 	uint16_t seqNum = 0;
@@ -995,6 +1031,7 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 			if(strLen <= len) strcat(buf, tmp);
 		}			
 	}	
+	cli_send_end();
 	pthread_mutex_unlock(&routeRegLock);
 }
 #endif /* _CPUMODE_ */
@@ -1014,6 +1051,7 @@ void cli_adv_show_mode(){
 	
 	if( mode == -1){
 		cli_send_str("Mode error!\n");
+		cli_send_end();
 		return;
 	}
     
@@ -1030,6 +1068,7 @@ void cli_adv_show_mode(){
 	    sprintf(buf, "Fast Reroute is OFF\n");
     
     cli_send_str( buf );
+	cli_send_end();
 
 }
 void cli_adv_set_multi( gross_option_t* data ){
@@ -1039,6 +1078,7 @@ void cli_adv_set_multi( gross_option_t* data ){
 
 	if( mode == -1){
 		cli_send_str("Mode error!\n");
+		cli_send_end();
 		return;
 	}
     
@@ -1048,6 +1088,7 @@ void cli_adv_set_multi( gross_option_t* data ){
 	    sprintf(buf, "Multipath is OFF\n");
     
     cli_send_str( buf );
+	cli_send_end();
     update_rtable();
 }
 void cli_adv_set_fast( gross_option_t* data ){
@@ -1057,6 +1098,7 @@ void cli_adv_set_fast( gross_option_t* data ){
     
 	if( mode == -1){
 		cli_send_str("Mode error!\n");
+		cli_send_end();
 		return;
 	}
     
@@ -1066,6 +1108,7 @@ void cli_adv_set_fast( gross_option_t* data ){
 	    sprintf(buf, "Fast Reroute is OFF\n");
     
     cli_send_str( buf );
+	cli_send_end();
 	update_rtable();
 }
 void cli_adv_show_stats(){
@@ -1190,7 +1233,7 @@ void cli_adv_show_stats(){
 	cli_send_str("\n");	
 	
 	pthread_rwlock_unlock(&subsystem->if_lock);
-
+	cli_send_end();
 }
 
 void cli_manip_ip_route_addm( gross_route_t* data ) {
@@ -1203,4 +1246,21 @@ void cli_manip_ip_route_addm( gross_route_t* data ) {
         rtable_route_addm(SR, ntohl(data->dest), ntohl(data->gw), ntohl(data->mask), intf, 1);
         cli_send_str( "The route has been added.\n" );
     }
+	cli_send_end();
+}
+
+void cli_adv_set_bot( gross_option_t* data ){
+	char buf[64];
+	is_bot = data->on;
+	if(is_bot)
+		sprintf(buf, "Bot is ON\n");
+	else
+		sprintf(buf, "Bot is OFF\n");
+	cli_send_str(buf);
+	cli_send_end();
+}
+
+void cli_send_end(){
+	if(is_bot)
+		cli_send_str("TheEnd!\n");
 }

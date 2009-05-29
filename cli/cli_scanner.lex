@@ -141,6 +141,7 @@ STRING            ({BEG_STRING}\")
 "on"         { return T_SET;       }
 "off"        { return T_UNSET;     }
 "addm"		 { return T_ADDM; 	   }
+"bot"	     { return T_BOT;       }
    
 
  /* **************** Constants ***************** */

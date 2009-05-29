@@ -56,6 +56,9 @@ typedef struct {
     int on;
 } gross_option_t;
 
+/** flag indicating if the CLI user is a human or a bot */
+int is_bot;
+
 /** Initiliazes the CLI global variables. */
 void cli_init();
 
@@ -160,6 +163,8 @@ void cli_adv_set_both( gross_option_t* data );
 void cli_adv_set_multi( gross_option_t* data );
 void cli_adv_set_fast( gross_option_t* data );
 void cli_manip_ip_route_addm( gross_route_t* data );
+void cli_adv_set_bot( gross_option_t* data );
+void cli_send_end();
 
 /* Display the current date and time. */
 void cli_date();

@@ -92,7 +92,7 @@ static void run_command();
 %token  T_ADD T_DEL T_UP T_DOWN T_PURGE T_STATIC T_DYNAMIC T_ABOUT
 %token  T_PING T_TRACE T_HELP T_EXIT T_SHUTDOWN T_FLOOD
 %token  T_SET T_UNSET T_OPTION T_VERBOSE T_DATE
-%token  T_MODE T_MULTIPATH T_ADV T_STATS T_FAST T_ADDM
+%token  T_MODE T_MULTIPATH T_ADV T_STATS T_FAST T_ADDM T_BOT
 
 /* Terminals which evaluate to some attribute value */
 %token   <intVal>       TAV_INT
@@ -374,6 +374,7 @@ AdvSubCommand : /* empty: show mode */            { SETC_FUNC0(cli_adv_show_mode
               | T_MODE AdvSubMode
               | T_STATS                           { SETC_FUNC0(cli_adv_show_stats); }
               | T_ROUTE T_ADDM RouteAddOrQM
+              | T_BOT OptionAction				  { SETC_OPT(cli_adv_set_bot); }
               ;
               
 AdvSubMode : /* empty: show mode */               { SETC_FUNC0(cli_adv_show_mode); }
