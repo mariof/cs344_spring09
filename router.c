@@ -689,6 +689,8 @@ void fill_rtable(rtableNode **head)
     int i;
     FILE *rtable_file = fopen("rtable", "r");
 
+	if (rtable_file == NULL) return;
+
 	// initialize
 	*head = NULL;
 	
@@ -1055,7 +1057,7 @@ void writeRoutingTable(){
 					}
 				}
 			}			
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, gws );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, htonl(gws) );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, ifs );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR_REG, index++ );		
 		}

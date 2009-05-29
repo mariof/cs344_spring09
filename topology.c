@@ -550,7 +550,7 @@ void update_rtable()
 			lsu_ad *cur_ad = cur_rtr->ads;
 			for(j = 0; j < n && cur_ad != NULL; j++) {
 			    //printf("populating adj_mat: j = %d\n", j);
-			    while(cur_ad != NULL && cur_ad->router_id < rtr_vec[j]->router_id) {
+			    while(cur_ad != NULL && cur_ad->router_id < rtr_vec[ai*n+j]->router_id) {
 					cur_ad = cur_ad->next;
 			    }
 			    if(cur_ad == NULL)
@@ -561,7 +561,7 @@ void update_rtable()
 						continue;
 					} 
 				}
-			    if(cur_ad->router_id == rtr_vec[j]->router_id) {
+			    if(cur_ad->router_id == rtr_vec[ai*n+j]->router_id) {
 					adj_mat[ai*n*n+i*n+j] = 1;
 					cur_ad = cur_ad->next;
 			    }
@@ -572,10 +572,10 @@ void update_rtable()
 	    printf("**********************************************\n");
 		topo_router *p_router = topo_head;
 		while(p_router){
-			printf("%u:: ", p_router->router_id);
+			printf("%x:: ", p_router->router_id);
 			lsu_ad *p_ad = p_router->ads;
 			while(p_ad){
-				printf("%u ", p_ad->router_id);
+				printf("%x ", p_ad->router_id);
 				p_ad = p_ad->next;
 			}
 			printf("\n");
@@ -587,7 +587,7 @@ void update_rtable()
 	    printf("----------------------------------------------\n");
 	    printf("----------------------------------------------\n");
 	    for(i = 0, cur_rtr = topo_head; i < n; i++, cur_rtr = cur_rtr->next) {
-			printf("%u, ", cur_rtr->router_id);
+			printf("%x, ", cur_rtr->router_id);
 	    }
 	    printf("\n");
 	    printf("----------------------------------------------\n");
@@ -669,11 +669,19 @@ void update_rtable()
 	    }
 	}    
     
+    for(ai = 0; ai < nif; ai++){
+    	printf("!!!!!! parent vec !!!!!!!\n");
+    	for(i = 0; i < n; i++){
+    		printf("%d ", parent_vec[ai*n+i]);
+    	}
+    	printf("\n");
+    }
+    
     s = get_index((topo_router**)rtr_vec, n, subsystem->pwospf.routerID); // source router
     // For each router, reconstruct path
     rtableNode *shadow = NULL;
     for(i = 0; i < n; i++) {
-	//printf("Reconstructing path for router %d\n", i);
+	//printf("Reconstructing path for router %u\n", i);
 		if(rtr_vec[i]->router_id == subsystem->pwospf.routerID) {
 		    // I'm da ROUTER!
 		    // add all my subnets to the routing table
@@ -696,7 +704,13 @@ void update_rtable()
 		}
 
 	    int *curr_index = (int*)malloc(sizeof(int)*nif);
+	    int cont_flag = 0;
 	    for(ai = 0; ai < nif; ai++){
+	    	if(rtr_vec[ai*n+i]->router_id == subsystem->pwospf.routerID){
+	    		cont_flag = 1;
+	    		curr_index[ai] = -1;
+	    		break;	
+	    	}
 			curr_index[ai] = i;
 			int hack_index = -1;
 			while(parent_vec[ai*n+curr_index[ai]] != s){
@@ -708,27 +722,34 @@ void update_rtable()
 					break;
 			    }
 			}
-			if(parent_vec[curr_index[ai]] < 0 || parent_vec[ai*n+curr_index[ai]] >= n) {
+			if(parent_vec[ai*n+curr_index[ai]] < 0 || parent_vec[ai*n+curr_index[ai]] >= n) {
 			    //disconnected node
 			    curr_index[ai] = -1;
 			}
-		}
 
+    		printf("!!!!!! curr index vec: ai: %d  i: %d!!!!!!\n", ai, i);
+  			printf("%d \n", curr_index[ai]);
+ 
+		}
+		if(cont_flag) continue;
+		
 		int fast_reroute_cnt = 0;
-		while(1){	// this will loop once for normal mode, twice for fast reroute (possibly more for more backup routes)
+		while(1){	// this will loop once for normal mode, twice for fast reroute
 			int min_dist = INT_MAX;
 			if(subsystem->mode & 0x1){ // if multipath
 				int entry_cnt = 0;
 				for(ai = 0; ai < nif; ai++){
 					if(curr_index[ai] < 0) continue;
-					if(dist_vec[ai*n+i] < min_dist){
-						min_dist = dist_vec[ai*n+i];
+					int loc_i = get_index((topo_router**)&rtr_vec[ai*n], n, rtr_vec[i]->router_id); // source router
+					if(dist_vec[ai*n+loc_i] < min_dist){
+						min_dist = dist_vec[ai*n+loc_i];
 						entry_cnt = 1;
 					}
-					else if(dist_vec[ai*n+i] == min_dist){
+					else if(dist_vec[ai*n+loc_i] == min_dist){
 						entry_cnt++;
 					}
 				}
+				printf("........ cnt: %d ........\n", entry_cnt);
 				if(entry_cnt > 0){
 					uint32_t* m_gw = (uint32_t*)malloc(sizeof(uint32_t)*entry_cnt);
 					char** m_ifname = (char**)malloc(sizeof(char*)*entry_cnt);
@@ -737,14 +758,17 @@ void update_rtable()
 			
 					int entry_index = 0;
 					for(ai = 0; ai < nif; ai++){
-						if(dist_vec[ai*n+i] == min_dist){
+						int loc_i = get_index((topo_router**)&rtr_vec[ai*n], n, rtr_vec[i]->router_id); // source router
+						if(dist_vec[ai*n+loc_i] == min_dist){
 							if(curr_index[ai] < 0) continue;
-							int ret = findNeighbor(rtr_vec[curr_index[ai]]->router_id, m_ifname[entry_index], &m_gw[entry_index]);
+							int ret = findNeighbor(rtr_vec[ai*n+curr_index[ai]]->router_id, m_ifname[entry_index], &m_gw[entry_index]);
+							printf("_)_)_)_)  rtr:%x ret: %d \n",rtr_vec[ai*n+curr_index[ai]]->router_id, ret);
 							if(!ret) continue;
 							entry_index++;
-							dist_vec[ai*n+i] = INT_MAX;
+							dist_vec[ai*n+loc_i] = INT_MAX;
 						}		
 					}
+				printf("........ new cnt: %d ........\n", entry_index);
 
 					lsu_ad *nbr = rtr_vec[i]->ads;
 					while(nbr != NULL && entry_index > 0) {
@@ -762,8 +786,9 @@ void update_rtable()
 				int min_index = -1;
 				for(ai = 0; ai < nif; ai++){
 					if(curr_index[ai] < 0) continue;
-					if(dist_vec[ai*n+i] < min_dist){
-						min_dist = dist_vec[ai*n+i];
+					int loc_i = get_index((topo_router**)&rtr_vec[ai*n], n, rtr_vec[i]->router_id); // source router
+					if(dist_vec[ai*n+loc_i] < min_dist){
+						min_dist = dist_vec[ai*n+loc_i];
 						min_index = ai;
 					}
 				}
@@ -771,10 +796,11 @@ void update_rtable()
 				char* m_ifname = (char*)malloc(sizeof(char)*SR_NAMELEN);
 				
 				if(min_index >= 0){
-					int ret = findNeighbor(rtr_vec[curr_index[min_index]]->router_id, m_ifname, &m_gw);
+					int ret = findNeighbor(rtr_vec[min_index*n+curr_index[min_index]]->router_id, m_ifname, &m_gw);
 					if(ret){
-						dist_vec[min_index*n+i] = INT_MAX;
-						lsu_ad *nbr = rtr_vec[i]->ads;
+						int loc_i = get_index((topo_router**)&rtr_vec[min_index*n], n, rtr_vec[i]->router_id); // source router
+						dist_vec[min_index*n+loc_i] = INT_MAX;
+						lsu_ad *nbr = rtr_vec[min_index*n+loc_i]->ads;
 						while(nbr != NULL) {
 						    //insert_shadow_node
 						    insert_shadow_node(&shadow, nbr->subnet, nbr->mask, &m_gw, &m_ifname, 1, 0);

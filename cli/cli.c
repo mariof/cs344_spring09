@@ -22,11 +22,11 @@
 
 #ifdef _CPUMODE_
 
-	#define STR_HW_INFO_MAX_LEN 1024
-	#define STR_ARP_CACHE_MAX_LEN 1024
-	#define STR_INTFS_HW_MAX_LEN 1024
-	#define STR_RTABLE_MAX_LEN 1024
-	#define STR_GWTABLE_MAX_LEN 1024
+	#define STR_HW_INFO_MAX_LEN (2048*5)
+	#define STR_ARP_CACHE_MAX_LEN (2048*5)
+	#define STR_INTFS_HW_MAX_LEN (2048*5)
+	#define STR_RTABLE_MAX_LEN (2048*5)
+	#define STR_GWTABLE_MAX_LEN (2048*5)
 
 	void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len );
 	void arp_cache_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsigned len );
@@ -787,7 +787,6 @@ void cli_opt_verbose( gross_option_t* data ) {
 
 
 #ifdef _CPUMODE_
-// TODO: implement these
 void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len ){
 	char tmp[128];
 	uint32_t mac_hi, mac_lo, stat[4];
@@ -858,7 +857,8 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 				break;
 			}
 			if(match){
-				strLen += sprintf(tmp, "If name: %s  enabled: %d\n", subsystem->ifaces[i].name, (stat[j] >> 5) & 0x01);
+				strLen += sprintf(tmp, "If name: %s  phy status: %x\n", subsystem->ifaces[i].name, (stat[j]));
+//				strLen += sprintf(tmp, "If name: %s  enabled: %x\n", subsystem->ifaces[i].name, (stat[j] >> 5) & 0x01);
 				if(strLen <= len) strcat(buf, tmp); 				
 				break;
 			}
@@ -983,7 +983,7 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 		
 		int2byteIP(subnet & mask, strSubnet);
 		int2byteIP(mask, strMask);
-		int2byteIP(gw, strGw);
+		int2byteIP(ntohl(gw), strGw);
 		
 		if(subnet != 0 || mask != 0 || gw != 0 || ifs != 0){
 			strLen += sprintf(	tmp, "subnet: %u.%u.%u.%u  mask: %u.%u.%u.%u  gw: %u|%u|%u|%u  interfaces: %u%u %u%u %u%u %u%u\n", 
