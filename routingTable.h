@@ -23,6 +23,7 @@ struct routingTableNode {
 	int out_cnt;
 	int is_static;
 	time_t t;
+	int entry_index; // for fast reroute
 	struct routingTableNode *prev;
 	struct routingTableNode *next;
 };
@@ -32,14 +33,18 @@ pthread_mutex_t rtable_lock;
 
 void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t* gateway, char** output_if, int out_cnt, int is_static);
 void merge_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t* gateway, char** output_if, int out_cnt, int is_static);
+void force_insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t* gateway, char** output_if, int out_cnt, int is_static);
 int del_ip(rtableNode **head, uint32_t ip, uint32_t netmask, int is_static);
 void del_route_type(rtableNode **head, int is_static);
 char *lp_match(rtableNode **head, uint32_t ip);
 uint32_t gw_match(rtableNode **head, uint32_t ip);
+rtableNode* copy_rtable(rtableNode *src);
+void kill_rtable(rtableNode** head);
 /* Replace all the dynamic routing table entries
  * with those from the shadow table
  */
 void rebuild_rtable(rtableNode **head, rtableNode *shadow_table);
+void rebuild_rtable_lockless(rtableNode **head, rtableNode *shadow_table);
 
 /**
  * ---------------------------------------------------------------------------
@@ -51,6 +56,10 @@ void rtable_route_add( struct sr_instance* sr,
                        void* intf,
                        int is_static_route );
 void rtable_route_addm( struct sr_instance* sr,
+                       uint32_t dest, uint32_t gw, uint32_t mask,
+                       void* intf,
+                       int is_static_route );
+void rtable_route_addf( struct sr_instance* sr,
                        uint32_t dest, uint32_t gw, uint32_t mask,
                        void* intf,
                        int is_static_route );

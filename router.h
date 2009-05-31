@@ -51,6 +51,8 @@ struct sr_router{
 	rtableNode *rtable;
 	int num_ifaces;
 	pthread_mutex_t mode_lock;
+	int ospf_enabled;
+	int agg_enabled;
 	int mode; // 0 - normal; 1 - multipath (mask 0x1); 2 - fast reroute (mask 0x2); 3 - both
 	struct sr_vns_if* ifaces;
 	pthread_rwlock_t if_lock;
@@ -80,6 +82,7 @@ void writeRoutingTable();
 int setMultipath(int multipath);
 int setFastReroute(int fast);
 int getMode();
+void aggregateRoutes(rtableNode** rtable);
 
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);
@@ -111,6 +114,7 @@ int router_interface_set_enabled( struct sr_instance* sr, const char* name, int 
 struct sr_vns_if* router_lookup_interface_via_ip( struct sr_instance* sr, uint32_t ip );
 struct sr_vns_if* router_lookup_interface_via_name( struct sr_instance* sr, const char* name );
 int router_is_interface_enabled( struct sr_instance* sr, void* intf );
-
+int router_is_ospf_enabled( struct sr_instance* sr ); 
+void router_set_ospf_enabled( struct sr_instance* sr, int enabled );
 
 #endif // ROUTER_H

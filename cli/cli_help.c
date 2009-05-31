@@ -311,23 +311,40 @@ shutdown: power off the router\n" );
 strace <dest IP>: traceourte to <dest IP>\n" );
 
 	    case HELP_ADV:
-	        return 0==writenstr( fd, "\
-adv <mode | stats | route>: advanced feature\n" );
+            return cli_send_multi_help( fd, "\
+adv [mode | stats | route | agg | bot]: advanced features\n",
+5,
+HELP_ADV_MODE,
+HELP_ADV_STATS,
+HELP_ADV_ROUTE,
+HELP_ADV_AGG,
+HELP_ADV_BOT);
           case HELP_ADV_MODE:
               return 0==writenstr( fd, "\
 adv mode <multi | fast> <on | off>: switches advanced features on or off\n" );
           case HELP_ADV_STATS:
               return 0==writenstr( fd, "\
 adv stats: prints statistics\n" );
-	      case HELP_ADV_ROUTE_ADDM:
+	      case HELP_ADV_ROUTE:
               return 0==writenstr( fd, "\
-adv route addm <dest IP> <gateway IP> <mask IP> <interface name>: add a static multipath route to\n\
-  <dest IP> with subnet mask <mask IP> via the next hop <gateway IP> out of\n\
-  interface <interface name>. This route will be merged with any existing\n\
-  routes to create a multipath route.\n" );
-
-
-
+adv route <addm | addf> add a static multipath or fast reroute route.\n" );
+		      case HELP_ADV_ROUTE_ADDM:
+	              return 0==writenstr( fd, "\
+	adv route addm <dest IP> <gateway IP> <mask IP> <interface name>: add a static multipath route to\n\
+	  <dest IP> with subnet mask <mask IP> via the next hop <gateway IP> out of\n\
+	  interface <interface name>. This route will be merged with any existing\n\
+	  routes to create a multipath route.\n" );
+		      case HELP_ADV_ROUTE_ADDF:
+	              return 0==writenstr( fd, "\
+	adv route addf <dest IP> <gateway IP> <mask IP> <interface name>: force add a static route to\n\
+	  <dest IP> with subnet mask <mask IP> via the next hop <gateway IP> out of\n\
+	  interface <interface name>. This route will be added even if routes to same subnet exist\n" );
+          case HELP_ADV_AGG:
+              return 0==writenstr( fd, "\
+adv agg <show | on | off>: switches hw route aggregation on or off\n" );
+          case HELP_ADV_BOT:
+              return 0==writenstr( fd, "\
+adv bot <on | off>: switches bot interface (printing TheEnd! at the end) on or off\n" );
 
 
         case HELP_OPT:

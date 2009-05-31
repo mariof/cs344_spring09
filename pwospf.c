@@ -5,9 +5,13 @@ pthread_mutex_t lsu_reentrant;
 
 // Thread that sends Hello packets, one thread per interface
 void pwospfSendHelloThread(void* arg){
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	struct pwospf_if* iface = (struct pwospf_if*)arg;
 	while(1){
-		sendHello(iface->ip);
+		if(subsystem->ospf_enabled){
+			sendHello(iface->ip);
+		}
 		sleep(iface->helloint);
 	}
 }
@@ -104,7 +108,9 @@ void pwospfSendLSUThread(void* dummy){
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	while(1){
-		sendLSU();
+		if(subsystem->ospf_enabled){
+			sendLSU();
+		}
 		sleep(subsystem->pwospf.lsuint);
 	}
 }
@@ -115,6 +121,8 @@ void processPWOSPF(const char* interface, uint8_t* packet, unsigned len){
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 	struct pwospf_if* iface = NULL;
+	
+	if(subsystem->ospf_enabled == 0) return;
 
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	for(i = 0; i < subsystem->num_ifaces; i++){

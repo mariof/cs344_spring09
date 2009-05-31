@@ -695,7 +695,7 @@ void fill_rtable(rtableNode **head)
 	*head = NULL;
 	
     while (!feof(rtable_file)) {
-    	int is_multipath = 0;
+    	int mode = 0;
 		if (fscanf(rtable_file, "%d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s", 
 			    &ip[0], &ip[1], &ip[2], &ip[3],
 			    &gw[0], &gw[1], &gw[2], &gw[3],
@@ -714,7 +714,11 @@ void fill_rtable(rtableNode **head)
 		if(if_len > 4){
 			if( strcmp(&output_if[if_len-4], "...m") == 0 ){
 				output_if[if_len-4] = 0;
-				is_multipath = 1;
+				mode = 1;
+			}
+			else if( strcmp(&output_if[if_len-4], "...f") == 0 ){
+				output_if[if_len-4] = 0;
+				mode = 2;
 			}
 		}
 		printf("Added to the routing table : %d.%d.%d.%d  %d.%d.%d.%d  %d.%d.%d.%d  %s\n", 
@@ -725,8 +729,10 @@ void fill_rtable(rtableNode **head)
 		printf("%x  %x  %x  %s\n", ip_32, gw_32, nm_32, output_if);
 	    char *tmp_if = (char*)malloc(sizeof(char)*SR_NAMELEN);
 	    strcpy(tmp_if, output_if);
-	    if(is_multipath)	
+	    if(mode == 1)	
 			merge_rtable_node(head, ip_32, nm_32, &gw_32, &tmp_if, 1, 1);
+	    else if(mode == 2)	
+			force_insert_rtable_node(head, ip_32, nm_32, &gw_32, &tmp_if, 1, 1);
 	    else
 			insert_rtable_node(head, ip_32, nm_32, &gw_32, &tmp_if, 1, 1);
 		free(tmp_if);
@@ -832,6 +838,22 @@ int router_is_interface_enabled( struct sr_instance* sr, void* intf ) {
     return interface->enabled;
 }
 
+/**
+ * Returns whether OSPF is enabled (0 if disabled, otherwise it is enabled).
+ */
+int router_is_ospf_enabled( struct sr_instance* sr ) {
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    return subsystem->ospf_enabled;
+}
+
+/**
+ * Sets whether OSPF is enabled.
+ */
+void router_set_ospf_enabled( struct sr_instance* sr, int enabled ) {
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	subsystem->ospf_enabled = enabled;
+}
+
 // enable/disable multipath
 // returns router mode, or -1 on error
 int setMultipath(int multipath){
@@ -896,6 +918,121 @@ int getMode(){
 	pthread_mutex_unlock(&subsystem->mode_lock);
 
 	return retVal;
+}
+
+uint32_t findMinNetmask_(uint32_t s1, uint32_t s2){
+	uint32_t retVal = 0x0;
+	uint32_t msk;
+	uint32_t s = s1 ^ s2;
+	for(msk = 0x80000000; msk; msk >>= 1){
+		retVal |= msk;
+		if( s & msk ) break;
+	}
+	return retVal;
+}
+
+int compareRoutes_(rtableNode* r1, rtableNode* r2){
+	int i, j;
+	
+	if(r1->out_cnt != r2->out_cnt) return 0;
+	if(r1->entry_index != r2->entry_index) return 0;
+	for(i = 0; i < r1->out_cnt; i++){
+		int tmp_found = 0;
+		for(j = 0; j < r2->out_cnt; j++){
+			if(r1->gateway[i] == r2->gateway[j]){
+				if(!strcmp(r1->output_if[i], r2->output_if[j])){
+					tmp_found = 1;
+					break;
+				}
+				else{
+					return 0;
+				}
+			}
+		}
+		if(tmp_found == 0) return 0;
+	}
+	return 1;	
+}
+
+void aggregateRoutes(rtableNode** rtable){
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	pthread_mutex_lock(&subsystem->mode_lock);
+		int fast_reroute = subsystem->mode & 0x2;
+	pthread_mutex_unlock(&subsystem->mode_lock);
+
+	rtableNode* first = *rtable;
+	while(first){
+		// find max mask
+		uint32_t max_msk = 0x0;
+		
+		// aggregate nodes down
+		if(first->entry_index == 0 && fast_reroute){
+			rtableNode* second = *rtable;
+			while(second){
+				if(second->entry_index == first->entry_index){
+					if(!compareRoutes_(first, second)){
+						uint32_t tmp_msk = findMinNetmask_(first->ip & first->netmask, second->ip & second->netmask);
+						if(tmp_msk > max_msk) max_msk = tmp_msk;
+					}
+				}
+				second = second->next;
+			}
+			second = first->next;
+			while(second){
+				rtableNode* second_next = second->next;
+				if(second->entry_index == first->entry_index){
+					if( (first->netmask <= second->netmask) && ( (first->ip & max_msk) == (second->ip & max_msk) ) ){
+						uint32_t tmp_msk = findMinNetmask_(first->ip & first->netmask, second->ip & second->netmask);
+						if(tmp_msk != 0xFFFFFFFF) tmp_msk <<= 1;
+						first->netmask &= tmp_msk & second->netmask;
+					
+						if(second->next) second->next->prev = second->prev;
+						second->prev->next = second->next;
+						free(second);
+					}
+				}
+				second = second_next;
+			}
+		} 
+		// aggregate nodes up
+		else if(first->entry_index == 1 || !fast_reroute){ 
+			rtableNode* second = *rtable;
+			while(second){
+				if(second->entry_index == first->entry_index){
+					if(!compareRoutes_(first, second)){
+						uint32_t tmp_msk = findMinNetmask_(first->ip & first->netmask, second->ip & second->netmask);
+						if(tmp_msk > max_msk) max_msk = tmp_msk;
+					}
+				}
+				second = second->next;
+			}
+			second = first->prev;
+			while(second){
+				rtableNode* second_prev = second->prev;
+				if(second->entry_index == first->entry_index){
+					if( (first->ip & max_msk) == (second->ip & max_msk) ){
+						uint32_t tmp_msk = findMinNetmask_(first->ip & first->netmask, second->ip & second->netmask);
+						if(tmp_msk != 0xFFFFFFFF) tmp_msk <<= 1;
+						first->netmask &= tmp_msk & second->netmask;
+					
+						second->next->prev = second->prev;
+						if(second->prev){ 	
+							second->prev->next = second->next;
+						}
+						else{
+							*rtable = second->next;
+						}
+						free(second);
+					}
+				}
+				second = second_prev;
+			}		
+		}
+		first = first->next;
+	}	
+		
 }
 
 #ifdef _CPUMODE_
@@ -966,6 +1103,21 @@ void writeRoutingTable(){
 	struct sr_instance* sr = get_sr();
 	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
 
+	pthread_mutex_lock(&subsystem->mode_lock);
+		int fast_reroute = subsystem->mode & 0x2;
+	pthread_mutex_unlock(&subsystem->mode_lock);
+
+	rtableNode *cpy_rtable = copy_rtable(subsystem->rtable);
+	rtableNode *agg_rtable = NULL;
+	
+	aggregateRoutes(&cpy_rtable);
+	
+	if(fast_reroute){
+		agg_rtable = cpy_rtable;
+	}
+	else{
+		rebuild_rtable_lockless(&agg_rtable, cpy_rtable);
+	}
 
 	// read in all MACs to match interface names
 	pthread_rwlock_rdlock(&subsystem->if_lock);
@@ -1013,7 +1165,13 @@ void writeRoutingTable(){
 	gwList_flush(&subsystem->gwList);
 	
 	pthread_mutex_lock(&routeRegLock);
-	rtableNode *rtable = subsystem->rtable;
+
+	rtableNode *rtable;
+	if(subsystem->agg_enabled)
+		rtable = agg_rtable;
+	else
+		rtable = subsystem->rtable;
+
 	while(rtable){
 		uint32_t ifs = 0;
 		uint32_t gws = 0;
@@ -1057,7 +1215,7 @@ void writeRoutingTable(){
 					}
 				}
 			}			
-			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, htonl(gws) );
+			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_NEXT_HOP_IP_REG, gws );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_ENTRY_OUTPUT_PORT_REG, ifs );
 			writeReg( &netFPGA, ROUTER_OP_LUT_ROUTE_TABLE_WR_ADDR_REG, index++ );		
 		}
@@ -1099,6 +1257,8 @@ void writeRoutingTable(){
 	pthread_mutex_unlock(&gw_lock);
 	
 	pthread_rwlock_unlock(&subsystem->if_lock);
+	
+	kill_rtable(&agg_rtable);
 
 }
 

@@ -92,7 +92,7 @@ static void run_command();
 %token  T_ADD T_DEL T_UP T_DOWN T_PURGE T_STATIC T_DYNAMIC T_ABOUT
 %token  T_PING T_TRACE T_HELP T_EXIT T_SHUTDOWN T_FLOOD
 %token  T_SET T_UNSET T_OPTION T_VERBOSE T_DATE
-%token  T_MODE T_MULTIPATH T_ADV T_STATS T_FAST T_ADDM T_BOT
+%token  T_MODE T_MULTIPATH T_ADV T_STATS T_FAST T_ADDM T_ADDF T_BOT T_AGG
 
 /* Terminals which evaluate to some attribute value */
 %token   <intVal>       TAV_INT
@@ -340,8 +340,11 @@ ActionHelp : HelpOrQ                              { HELP(HELP_ACTION_HELP); }
            | HelpOrQ T_ADV                        { HELP(HELP_ADV); }
            | HelpOrQ T_ADV T_MODE                 { HELP(HELP_ADV_MODE); }
            | HelpOrQ T_ADV T_STATS                { HELP(HELP_ADV_STATS); }
-           | HelpOrQ T_ADV T_ROUTE                { HELP(HELP_ADV_ROUTE_ADDM); }
+           | HelpOrQ T_ADV T_ROUTE                { HELP(HELP_ADV_ROUTE); }
            | HelpOrQ T_ADV T_ROUTE T_ADDM         { HELP(HELP_ADV_ROUTE_ADDM); }
+           | HelpOrQ T_ADV T_ROUTE T_ADDF         { HELP(HELP_ADV_ROUTE_ADDF); }
+           | HelpOrQ T_ADV T_AGG                  { HELP(HELP_ADV_AGG); }
+           | HelpOrQ T_ADV T_BOT                  { HELP(HELP_ADV_BOT); }
            | HelpOrQ {ERR_IGNORE} error           { HELP(HELP_ACTION_HELP); }
            ;
 
@@ -370,11 +373,14 @@ ShowTypeOption : /* empty: show all */            { SETC_FUNC0(cli_show_opt); }
 AdvCommand : T_ADV AdvSubCommand
            ;
            
-AdvSubCommand : /* empty: show mode */            { SETC_FUNC0(cli_adv_show_mode); }
+AdvSubCommand : /* empty: show help */            { HELP(HELP_ADV); }
               | T_MODE AdvSubMode
               | T_STATS                           { SETC_FUNC0(cli_adv_show_stats); }
               | T_ROUTE T_ADDM RouteAddOrQM
+         	  | T_ROUTE T_ADDF RouteAddOrQF
+         	  | T_AGG T_SHOW     		   		  { SETC_FUNC0(cli_adv_get_agg); }
               | T_BOT OptionAction				  { SETC_OPT(cli_adv_set_bot); }
+              | T_AGG OptionAction				  { SETC_OPT(cli_adv_set_agg); }
               ;
               
 AdvSubMode : /* empty: show mode */               { SETC_FUNC0(cli_adv_show_mode); }
@@ -390,6 +396,15 @@ RouteAddOrQM : HelpOrQ                               { HELP(HELP_ADV_ROUTE_ADDM)
              | TAV_IP TAV_IP TAV_IP {ERR_INTF} error { HELP(HELP_ADV_ROUTE_ADDM); }
              | TAV_IP TAV_IP TAV_IP TAV_STR          { SETC_RT_ADD(cli_manip_ip_route_addm,$1,$2,$3,$4); }
              | TAV_IP TAV_IP TAV_IP TAV_STR TMIorQ   { HELP(HELP_ADV_ROUTE_ADDM); }
+             ;
+
+RouteAddOrQF : HelpOrQ                               { HELP(HELP_ADV_ROUTE_ADDF); }
+             | {ERR_IP} error                        { HELP(HELP_ADV_ROUTE_ADDF); }
+             | TAV_IP {ERR_IP} error                 { HELP(HELP_ADV_ROUTE_ADDF); }
+             | TAV_IP TAV_IP {ERR_IP} error          { HELP(HELP_ADV_ROUTE_ADDF); }
+             | TAV_IP TAV_IP TAV_IP {ERR_INTF} error { HELP(HELP_ADV_ROUTE_ADDF); }
+             | TAV_IP TAV_IP TAV_IP TAV_STR          { SETC_RT_ADD(cli_manip_ip_route_addf,$1,$2,$3,$4); }
+             | TAV_IP TAV_IP TAV_IP TAV_STR TMIorQ   { HELP(HELP_ADV_ROUTE_ADDF); }
              ;
 
 

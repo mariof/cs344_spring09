@@ -65,8 +65,12 @@ typedef enum cli_help_t {
     HELP_ADV,
       HELP_ADV_MODE,
       HELP_ADV_STATS,
-      HELP_ADV_ROUTE_ADDM,
-
+      HELP_ADV_ROUTE,
+        HELP_ADV_ROUTE_ADDM,
+        HELP_ADV_ROUTE_ADDF,
+	  HELP_ADV_AGG,
+	  HELP_ADV_BOT,
+	  
     HELP_OPT,
       HELP_OPT_VERBOSE
 } cli_help_t;

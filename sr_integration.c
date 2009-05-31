@@ -46,6 +46,8 @@ void sr_integ_init(struct sr_instance* sr)
  	assert(subsystem);
  	subsystem->num_ifaces = 0;
     subsystem->mode = 0;
+    subsystem->ospf_enabled = 1;
+    subsystem->agg_enabled = 0;
  	subsystem->ifaces = NULL;
     sr_set_subsystem(sr, subsystem);
 

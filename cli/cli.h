@@ -163,7 +163,10 @@ void cli_adv_set_both( gross_option_t* data );
 void cli_adv_set_multi( gross_option_t* data );
 void cli_adv_set_fast( gross_option_t* data );
 void cli_manip_ip_route_addm( gross_route_t* data );
+void cli_manip_ip_route_addf( gross_route_t* data );
 void cli_adv_set_bot( gross_option_t* data );
+void cli_adv_set_agg( gross_option_t* data );
+void cli_adv_get_agg();
 void cli_send_end();
 
 /* Display the current date and time. */

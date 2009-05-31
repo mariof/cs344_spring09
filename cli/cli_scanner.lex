@@ -142,8 +142,9 @@ STRING            ({BEG_STRING}\")
 "off"        { return T_UNSET;     }
 "addm"		 { return T_ADDM; 	   }
 "bot"	     { return T_BOT;       }
-   
-
+"addf"       { return T_ADDF;      }
+"agg"		 { return T_AGG;       }
+  
  /* **************** Constants ***************** */
 {DEC_INTEGER}       { yylval.intVal = strtol(yytext, NULL, 10);
                       return TAV_INT; }

@@ -288,11 +288,13 @@ void cli_show_ip_intf() {
     cli_send_str("\nInterfaces:\n");
     for(i = 0; i < subsystem->num_ifaces; i++) {
 		struct sr_vns_if *node = &(subsystem->ifaces[i]);
-		uint8_t ip_str[4];
+		uint8_t ip_str[4], nm_str[4];
 		int2byteIP(node->ip, ip_str);
-		sprintf(buf, "%s IP: %u.%u.%u.%u MAC: %.2x:%.2x:%.2x:%.2x:%.2x:%.2x enabled:%d\n",
+		int2byteIP(node->mask, nm_str);
+		sprintf(buf, "%s IP: %u.%u.%u.%u  netmask: %u.%u.%u.%u  MAC: %.2x:%.2x:%.2x:%.2x:%.2x:%.2x enabled:%d\n",
 			node->name, 
 			ip_str[0], ip_str[1], ip_str[2], ip_str[3],
+			nm_str[0], nm_str[1], nm_str[2], nm_str[3],
 			node->addr[0], node->addr[1], node->addr[2], node->addr[3], node->addr[4], node->addr[5],
 			node->enabled);
 	    cli_send_str( buf );
@@ -359,6 +361,7 @@ void cli_show_ospf_neighbors() {
 	pthread_rwlock_rdlock(&subsystem->if_lock);
 	struct pwospf_if *pw_if = subsystem->pwospf.if_list;
 	
+    uint8_t strRtr[4];
     uint8_t ip[4];
 
     while(pw_if != NULL) {
@@ -373,8 +376,9 @@ void cli_show_ospf_neighbors() {
 			struct pwospf_neighbor *node = pw_if->neighbor_list;
 			while(node){
 				int2byteIP(node->ip, ip);
-				sprintf(buf, "\tRouterID:%x  IP:%d.%d.%d.%d\n", 
-					    node->id,
+				int2byteIP(node->id, strRtr);
+				sprintf(buf, "\tRouterID:%u.%u.%u.%u  IP:%u.%u.%u.%u\n", 
+					    strRtr[0], strRtr[1], strRtr[2], strRtr[3],
 					    ip[0], ip[1], ip[2], ip[3]);
 			    cli_send_str( buf );
 			
@@ -594,20 +598,20 @@ void cli_manip_ip_intf_up( gross_intf_t* data ) {
 void cli_manip_ip_ospf_down() {
     if( router_is_ospf_enabled( SR ) ) {
         router_set_ospf_enabled( SR, 0 );
-        cli_send_str( "OSPF has been disabled" );
+        cli_send_str( "OSPF has been disabled\n" );
     }
     else
-        cli_send_str( "OSPF was already disabled" );
+        cli_send_str( "OSPF was already disabled\n" );
 	cli_send_end();
 }
 
 void cli_manip_ip_ospf_up() {
     if( !router_is_ospf_enabled( SR ) ) {
         router_set_ospf_enabled( SR, 1 );
-        cli_send_str( "OSPF has been enabled" );
+        cli_send_str( "OSPF has been enabled\n" );
     }
     else
-        cli_send_str( "OSPF was already enabled" );
+        cli_send_str( "OSPF was already enabled\n" );
 	cli_send_end();
 }
 
@@ -622,6 +626,7 @@ void cli_manip_ip_route_add( gross_route_t* data ) {
         cli_send_str( "The route has been added.\n" );
     }
 	cli_send_end();
+	update_rtable();
 }
 
 void cli_manip_ip_route_del( gross_route_t* data ) {
@@ -630,24 +635,30 @@ void cli_manip_ip_route_del( gross_route_t* data ) {
     else
         cli_send_str( "That route does not exist.\n" );
 	cli_send_end();
+	update_rtable();
 }
 
 void cli_manip_ip_route_purge_all() {
     rtable_purge_all( SR );
     cli_send_str( "All routes have been removed from the routing table.\n" );
 	cli_send_end();
+	flush_topo();
+	update_rtable();
 }
 
 void cli_manip_ip_route_purge_dyn() {
     rtable_purge( SR, 0 );
     cli_send_str( "All dymanic routes have been removed from the routing table.\n" );
 	cli_send_end();
+	flush_topo();
+	update_rtable();
 }
 
 void cli_manip_ip_route_purge_sta() {
     rtable_purge( SR, 1 );
     cli_send_str( "All static routes have been removed from the routing table.\n" );
 	cli_send_end();
+	update_rtable();
 }
 
 void cli_date() {
@@ -825,7 +836,7 @@ void cli_opt_verbose( gross_option_t* data ) {
 #ifdef _CPUMODE_
 void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len ){
 	char tmp[128];
-	uint32_t mac_hi, mac_lo, stat[4];
+	uint32_t mac_hi, mac_lo, stat;
 	uint8_t mac[4][6];
 	int i, j, k;
 	int strLen = 0;
@@ -845,7 +856,6 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 	
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI_REG, &mac_hi);
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO_REG, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_0_STATUS_REG, &stat[0]);
 	mac[0][0] = (mac_hi >> 8) & 0xFF;
 	mac[0][1] = (mac_hi) & 0xFF;
 	mac[0][2] = (mac_lo >> 24) & 0xFF;
@@ -855,7 +865,6 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI_REG, &mac_hi);
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO_REG, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_1_STATUS_REG, &stat[1]);
 	mac[1][0] = (mac_hi >> 8) & 0xFF;
 	mac[1][1] = (mac_hi) & 0xFF;
 	mac[1][2] = (mac_lo >> 24) & 0xFF;
@@ -865,7 +874,6 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI_REG, &mac_hi);
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO_REG, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_2_STATUS_REG, &stat[2]);
 	mac[2][0] = (mac_hi >> 8) & 0xFF;
 	mac[2][1] = (mac_hi) & 0xFF;
 	mac[2][2] = (mac_lo >> 24) & 0xFF;
@@ -875,7 +883,6 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI_REG, &mac_hi);
 	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO_REG, &mac_lo);
-	readReg(&netFPGA, MDIO_PHY_3_STATUS_REG, &stat[3]);
 	mac[3][0] = (mac_hi >> 8) & 0xFF;
 	mac[3][1] = (mac_hi) & 0xFF;
 	mac[3][2] = (mac_lo >> 24) & 0xFF;
@@ -885,16 +892,19 @@ void router_hw_info_to_string( struct sr_instance *sr, char *buf, unsigned len )
 
 	pthread_mutex_unlock(&ifRegLock);
 
+	readReg(&netFPGA, ROUTER_OP_LUT_LINK_STATUS_REG, &stat);
+
 	for(i = 0; i < subsystem->num_ifaces; i++){
 		for(j = 0; j < 4; j++){
 			int match = 1;
 			for(k = 0; k < 6; k++){
-				if(mac[j][k] != subsystem->ifaces[i].addr[k]) match = 0;
-				break;
+				if(mac[j][k] != subsystem->ifaces[i].addr[k]){
+					match = 0;
+					break;
+				}
 			}
 			if(match){
-				strLen += sprintf(tmp, "If name: %s  phy status: %x\n", subsystem->ifaces[i].name, (stat[j]));
-//				strLen += sprintf(tmp, "If name: %s  enabled: %x\n", subsystem->ifaces[i].name, (stat[j] >> 5) & 0x01);
+				strLen += sprintf(tmp, "If name: %s  link: %x\n", subsystem->ifaces[i].name, (stat >> (2*j)) & 0x01);
 				if(strLen <= len) strcat(buf, tmp); 				
 				break;
 			}
@@ -1019,10 +1029,15 @@ void rtable_hw_to_string( struct sr_instance *sr, int verbose, char *buf, unsign
 		
 		int2byteIP(subnet & mask, strSubnet);
 		int2byteIP(mask, strMask);
-		int2byteIP(ntohl(gw), strGw);
+		int2byteIP(gw, strGw);
+		
+		if ((ifs >> 6) & 0x01) strGw[0] += 0x30; else strGw[0] = '-';
+		if ((ifs >> 4) & 0x01) strGw[1] += 0x30; else strGw[1] = '-';
+		if ((ifs >> 2) & 0x01) strGw[2] += 0x30; else strGw[2] = '-';
+		if ((ifs >> 0) & 0x01) strGw[3] += 0x30; else strGw[3] = '-';
 		
 		if(subnet != 0 || mask != 0 || gw != 0 || ifs != 0){
-			strLen += sprintf(	tmp, "subnet: %u.%u.%u.%u  mask: %u.%u.%u.%u  gw: %u|%u|%u|%u  interfaces: %u%u %u%u %u%u %u%u\n", 
+			strLen += sprintf(	tmp, "subnet: %u.%u.%u.%u  mask: %u.%u.%u.%u  gw: %c|%c|%c|%c  interfaces: %u%u %u%u %u%u %u%u\n", 
 								strSubnet[0], strSubnet[1], strSubnet[2], strSubnet[3],
 								strMask[0], strMask[1], strMask[2], strMask[3],
 								strGw[0], strGw[1], strGw[2], strGw[3],
@@ -1249,13 +1264,62 @@ void cli_manip_ip_route_addm( gross_route_t* data ) {
 	cli_send_end();
 }
 
+void cli_manip_ip_route_addf( gross_route_t* data ) {
+    void *intf;
+    intf = router_lookup_interface_via_name( SR, data->intf_name );
+    if( !intf )
+        cli_send_strs( 3, "Error: no interface with the name ",
+                       data->intf_name, " exists.\n" );
+    else {
+        rtable_route_addf(SR, ntohl(data->dest), ntohl(data->gw), ntohl(data->mask), intf, 1);
+        cli_send_str( "The route has been added.\n" );
+    }
+	cli_send_end();
+}
+
 void cli_adv_set_bot( gross_option_t* data ){
 	char buf[64];
+	uint8_t strRtr[4];
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	int2byteIP(subsystem->pwospf.routerID, strRtr);	
+	
 	is_bot = data->on;
-	if(is_bot)
-		sprintf(buf, "Bot is ON\n");
-	else
+	if(is_bot){
+		sprintf(buf, "Bot is ON\nRouterID: %u.%u.%u.%u\n", strRtr[0], strRtr[1], strRtr[2], strRtr[3]);
+	}
+	else{
 		sprintf(buf, "Bot is OFF\n");
+	}
+	cli_send_str(buf);
+	cli_send_end();
+}
+
+void cli_adv_set_agg( gross_option_t* data ){
+	char buf[64];
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	subsystem->agg_enabled = data->on;
+	if(subsystem->agg_enabled)
+		sprintf(buf, "Aggregation is ON\n");
+	else
+		sprintf(buf, "Aggregation is OFF\n");
+	cli_send_str(buf);
+	cli_send_end();
+	update_rtable();
+}
+
+void cli_adv_get_agg(){
+	char buf[64];
+	struct sr_instance* sr = get_sr();
+	struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+
+	if(subsystem->agg_enabled)
+		sprintf(buf, "Aggregation is ON\n");
+	else
+		sprintf(buf, "Aggregation is OFF\n");
 	cli_send_str(buf);
 	cli_send_end();
 }

@@ -21,6 +21,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
     node->out_cnt = out_cnt;
     node->gateway = (uint32_t*)malloc(sizeof(uint32_t)*out_cnt);
     node->output_if = (char**)malloc(sizeof(char*)*out_cnt);
+    node->entry_index = 0;
     for(i = 0; i < out_cnt; i++) node->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);
     for(i = 0; i < out_cnt; i++) node->gateway[i] = gateway[i];
     for(i = 0; i < out_cnt; i++) strcpy(node->output_if[i], output_if[i]);
@@ -53,16 +54,18 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
 		}
 
 		//check for equality to prevent adding duplicate nodes
-		if((cnode->ip&cnode->netmask) == (ip&netmask) && (cnode->is_static == is_static)) {
+		if((cnode->ip&cnode->netmask) == (ip&netmask) && ((cnode->is_static == is_static) || is_static )) {
 			if(cnode->out_cnt != out_cnt){
 				for(i = 0; i < cnode->out_cnt; i++) free(cnode->output_if[i]);
 				free(cnode->output_if);
 				free(cnode->gateway);
 			    cnode->out_cnt = out_cnt;
+			    cnode->is_static = is_static;
 			    cnode->gateway = (uint32_t*)malloc(sizeof(uint32_t)*cnode->out_cnt);
 			    cnode->output_if = (char**)malloc(sizeof(char*)*cnode->out_cnt);
 			    for(i = 0; i < cnode->out_cnt; i++) cnode->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);							
 			}
+			cnode->is_static = is_static;
 			for(i = 0; i < out_cnt; i++){
 				cnode->gateway[i] = gateway[i];
 				strcpy(cnode->output_if[i], output_if[i]);
@@ -89,8 +92,7 @@ void insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32
     return;
 }
 
-
-void merge_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t* gateway, char** output_if, int out_cnt, int is_static)
+void force_insert_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t* gateway, char** output_if, int out_cnt, int is_static)
 {
 	int i;
 	
@@ -110,6 +112,7 @@ void merge_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_
     node->out_cnt = out_cnt;
     node->gateway = (uint32_t*)malloc(sizeof(uint32_t)*out_cnt);
     node->output_if = (char**)malloc(sizeof(char*)*out_cnt);
+    node->entry_index = 0;
     for(i = 0; i < out_cnt; i++) node->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);
     for(i = 0; i < out_cnt; i++) node->gateway[i] = gateway[i];
     for(i = 0; i < out_cnt; i++) strcpy(node->output_if[i], output_if[i]);
@@ -142,9 +145,92 @@ void merge_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_
 		}
 
 		//check for equality to prevent adding duplicate nodes
+		if((cnode->ip & cnode->netmask) == (ip & netmask)) {
+			int tmp_flag = 1;
+			while((cnode->ip & cnode->netmask) == (ip & netmask)){
+				if(cnode->next){	
+					cnode = cnode->next;
+				}
+				else{
+					tmp_flag = 0;
+					break;
+				}
+			}
+			if(tmp_flag) cnode = cnode->prev;
+			node->entry_index = cnode->entry_index + 1;		
+		}
+		
+		// insert new node
+		if(cnode->next != NULL) {
+		    (cnode->next)->prev = node;
+		}
+		node->next = cnode->next;
+		node->prev = cnode;
+		cnode->next = node;
+    }
+
+    //release lock
+    pthread_mutex_unlock(&rtable_lock);
+    return;
+}
+
+void merge_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_t* gateway, char** output_if, int out_cnt, int is_static)
+{
+	int i;
+	
+	if(out_cnt < 1) return;
+	
+    //check output_if size
+    for(i = 0; i < out_cnt; i++){
+	    if(strlen(output_if[i]) >= SR_NAMELEN) {
+			return;
+	    }
+	}
+
+    //create new node
+    rtableNode *node = (rtableNode*) malloc(sizeof(rtableNode));
+    node->ip = ip;
+    node->netmask = netmask;
+    node->out_cnt = out_cnt;
+    node->gateway = (uint32_t*)malloc(sizeof(uint32_t)*out_cnt);
+    node->output_if = (char**)malloc(sizeof(char*)*out_cnt);
+    node->entry_index = 0;
+    for(i = 0; i < out_cnt; i++) node->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);
+    for(i = 0; i < out_cnt; i++) node->gateway[i] = gateway[i];
+    for(i = 0; i < out_cnt; i++) strcpy(node->output_if[i], output_if[i]);
+    node->is_static = is_static;
+    node->next = node->prev = NULL;
+
+    //acquire lock
+    pthread_mutex_lock(&rtable_lock);
+
+    //Check if the list is empty
+    if(*head == NULL) {
+		(*head) = node;
+		pthread_mutex_unlock(&rtable_lock);
+		return;
+    }
+
+    //scan the list until you hit the right netmask
+    rtableNode *cnode = *head;
+    if(netmask > cnode->netmask || (netmask == cnode->netmask && (ip&netmask) > (cnode->ip&cnode->netmask))) {
+		*head = node;
+		node->next = cnode;
+		cnode->prev = node;
+    }
+    else {
+		while(cnode->next != NULL) {
+		    if(netmask > cnode->next->netmask || (netmask == cnode->next->netmask && (ip&netmask) > (cnode->next->ip & cnode->next->netmask))) {
+				break;
+		    }
+		    cnode = cnode->next;
+		}
+
+		//check for equality
 		if((cnode->ip&cnode->netmask) == (ip&netmask)) {
 			int old_cnt = cnode->out_cnt;
 		    cnode->out_cnt += out_cnt;
+		    cnode->is_static &= is_static; 
 		    cnode->gateway = (uint32_t*)realloc(cnode->gateway, sizeof(uint32_t)*cnode->out_cnt);
 		    cnode->output_if = (char**)realloc(cnode->output_if, sizeof(char*)*cnode->out_cnt);
 		    for(i = old_cnt; i < cnode->out_cnt; i++) cnode->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);							
@@ -172,6 +258,56 @@ void merge_rtable_node(rtableNode **head, uint32_t ip, uint32_t netmask, uint32_
     //release lock
     pthread_mutex_unlock(&rtable_lock);
     return;
+}
+
+rtableNode* copy_rtable(rtableNode *src){
+	int i;
+	rtableNode *dst_head = NULL;
+	rtableNode *dst;
+	rtableNode *dst_prev = NULL;
+	while(src){
+		dst = (rtableNode*)malloc(sizeof(rtableNode));
+		dst->out_cnt = src->out_cnt;
+		dst->gateway = (uint32_t*)malloc(sizeof(uint32_t)*dst->out_cnt);
+		dst->output_if = (char**)malloc(sizeof(char*)*dst->out_cnt);
+		for(i = 0; i < dst->out_cnt; i++) dst->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);
+		
+		dst->ip = src->ip;
+		dst->netmask = src->netmask;
+		for(i = 0; i < dst->out_cnt; i++){
+			dst->gateway[i] = src->gateway[i];
+			strcpy(dst->output_if[i], src->output_if[i]);
+		}
+		dst->is_static = src->is_static;
+		dst->t = src->t;
+		dst->entry_index = src->entry_index;
+		
+		dst->prev = dst_prev;
+		dst->next = NULL;
+		if(dst_prev){
+			dst_prev->next = dst;
+		}
+		else{
+			dst_head = dst;
+		}
+		
+		dst_prev = dst;
+		src = src->next;
+	}
+	return dst_head;
+}
+
+void kill_rtable(rtableNode** head){
+	int i;
+	while(*head){
+		rtableNode *next_node = (*head)->next;
+		for(i = 0; i < (*head)->out_cnt; i++) free((*head)->output_if[i]);
+		free((*head)->output_if);
+		free((*head)->gateway);
+		free(*head);
+		
+		*head = next_node;
+	}
 }
 
 
@@ -316,36 +452,40 @@ uint32_t gw_match(rtableNode **head, uint32_t ip)
     return gw;
 }
 
-void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
+void rebuild_rtable_lockless(rtableNode **head, rtableNode *shadow_table)
 {
-	int i;
-    // acquire lock
-    pthread_mutex_lock(&rtable_lock);
+	int i, mode = 0;
+    struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    
+    pthread_mutex_lock(&subsystem->mode_lock);
+    	mode = subsystem->mode;
+    pthread_mutex_unlock(&subsystem->mode_lock);
 
     // purge all the dynamic entries
     int is_static = 0;
     rtableNode *node = *head;
     while(node != NULL) {
-	if(node->is_static == is_static) {
-	    rtableNode *nxt_node = node->next;
-	    //delete node
-	    if(node->prev != NULL) {
-		(node->prev)->next = node->next;
-	    }
-	    else {
-		*head = node->next;
-	    }
-	    if(node->next != NULL) {
-		(node->next)->prev = node->prev;
-	    }
-		for(i = 0; i < node->out_cnt; i++) free(node->output_if[i]);
-		free(node->output_if);
-		free(node->gateway);	    
-	    free(node);
-	    node = nxt_node;
-	    continue;
-	}
-	node = node->next;
+		if(node->is_static == is_static) {
+		    rtableNode *nxt_node = node->next;
+		    //delete node
+		    if(node->prev != NULL) {
+				(node->prev)->next = node->next;
+		    }
+		    else {
+				*head = node->next;
+		    }
+		    if(node->next != NULL) {
+				(node->next)->prev = node->prev;
+		    }
+			for(i = 0; i < node->out_cnt; i++) free(node->output_if[i]);
+			free(node->output_if);
+			free(node->gateway);	    
+		    free(node);
+		    node = nxt_node;
+		    continue;
+		}
+		node = node->next;
     }
 
     // add all the entries from the shadow table
@@ -353,64 +493,94 @@ void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
     rtableNode *nxt_node = NULL;
 
     while(node != NULL) {
-	nxt_node = node->next;
+		nxt_node = node->next;
 
-	//Check if the list is empty
-	if(*head == NULL) {
-	    (*head) = node;
-	    node->next = NULL;
-	    node = nxt_node;
-	    continue;
-	}
+		//Check if the list is empty
+		if(*head == NULL) {
+		    (*head) = node;
+		    node->next = NULL;
+		    node = nxt_node;
+		    continue;
+		}
 
-	//scan the list until you hit the right netmask
-	rtableNode *cnode = *head;
-	if(node->netmask > cnode->netmask || (node->netmask == cnode->netmask && (node->ip & node->netmask) > (cnode->ip & cnode->netmask))) {
-	    *head = node;
-	    node->next = cnode;
-	    cnode->prev = node;
-	}
-	else {
-	    while(cnode->next != NULL) {
-			if(node->netmask > cnode->next->netmask || (node->netmask == cnode->next->netmask && (node->ip & node->netmask) > (cnode->next->ip & cnode->next->netmask))) {
-			    break;
+		//scan the list until you hit the right netmask
+		rtableNode *cnode = *head;
+		if( node->netmask > cnode->netmask || (node->netmask == cnode->netmask && (node->ip & node->netmask) > (cnode->ip & cnode->netmask))) {		
+		    *head = node;
+		    node->next = cnode;
+		    cnode->prev = node;			
+		}
+		else {
+		    while(cnode->next != NULL) {
+				if(node->netmask > cnode->next->netmask || (node->netmask == cnode->next->netmask && (node->ip & node->netmask) > (cnode->next->ip & cnode->next->netmask))) {
+				    break;
+				}
+				cnode = cnode->next;
+		    }
+
+		    //check for equality
+		    if( ((mode & 0x2) == 0 ) && ((cnode->ip & cnode->netmask) == (node->ip & node->netmask)) && (cnode->is_static == node->is_static)) {
+				if(cnode->out_cnt != node->out_cnt){
+					for(i = 0; i < cnode->out_cnt; i++) free(cnode->output_if[i]);
+					free(cnode->output_if);
+					free(cnode->gateway);
+				    cnode->out_cnt = node->out_cnt;
+				    cnode->gateway = (uint32_t*)malloc(sizeof(uint32_t)*cnode->out_cnt);
+				    node->output_if = (char**)malloc(sizeof(char*)*cnode->out_cnt);
+				    for(i = 0; i < cnode->out_cnt; i++) cnode->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);							
+				}
+				for(i = 0; i < node->out_cnt; i++){
+					cnode->gateway[i] = node->gateway[i];
+					strcpy(cnode->output_if[i], node->output_if[i]);
+				}
+				for(i = 0; i < node->out_cnt; i++) free(node->output_if[i]);
+				free(node->output_if);
+				free(node->gateway);
+				free(node);
+				node = nxt_node;
+				continue;
+		    }		    
+		    
+			if( ((mode & 0x2) == 1) && (cnode->ip & cnode->netmask) == (node->ip & node->netmask)) {
+				int tmp_flag = 1;
+				while((cnode->ip & cnode->netmask) == (node->ip & node->netmask)){			
+					if(cnode->next){	
+						cnode = cnode->next;
+					}
+					else{
+						tmp_flag = 0;
+						break;
+					}
+				}
+				if(tmp_flag) cnode = cnode->prev;
+				if(cnode->entry_index >= node->entry_index){
+					for(i = 0; i < node->out_cnt; i++) free(node->output_if[i]);
+					free(node->output_if);
+					free(node->gateway);
+				    free(node);
+					node = nxt_node;
+					continue;
+				}
 			}
-			cnode = cnode->next;
-	    }
-
-	    //check for equality to prevent adding duplicate nodes
-	    if(((cnode->ip & cnode->netmask) == (node->ip & node->netmask)) && (cnode->is_static == node->is_static)) {
-			if(cnode->out_cnt != node->out_cnt){
-				for(i = 0; i < cnode->out_cnt; i++) free(cnode->output_if[i]);
-				free(cnode->output_if);
-				free(cnode->gateway);
-			    cnode->out_cnt = node->out_cnt;
-			    cnode->gateway = (uint32_t*)malloc(sizeof(uint32_t)*cnode->out_cnt);
-			    node->output_if = (char**)malloc(sizeof(char*)*cnode->out_cnt);
-			    for(i = 0; i < cnode->out_cnt; i++) cnode->output_if[i] = (char*)malloc(sizeof(char)*SR_NAMELEN);							
-			}
-			for(i = 0; i < node->out_cnt; i++){
-				cnode->gateway[i] = node->gateway[i];
-				strcpy(cnode->output_if[i], node->output_if[i]);
-			}
-			for(i = 0; i < node->out_cnt; i++) free(node->output_if[i]);
-			free(node->output_if);
-			free(node->gateway);
-			free(node);
-			node = nxt_node;
-			continue;
-	    }
-
-	    // insert new node
-	    if(cnode->next != NULL) {
-			(cnode->next)->prev = node;
-	    }
-	    node->next = cnode->next;
-	    node->prev = cnode;
-	    cnode->next = node;
-	}
-	node = nxt_node;
+		    
+		    // insert new node
+		    if(cnode->next != NULL) {
+				(cnode->next)->prev = node;
+		    }
+		    node->next = cnode->next;
+		    node->prev = cnode;
+		    cnode->next = node;
+		}
+		node = nxt_node;
     }
+}
+
+void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
+{
+    // acquire lock
+    pthread_mutex_lock(&rtable_lock);
+
+	rebuild_rtable_lockless(head, shadow_table);
 
 	#ifdef _CPUMODE_
 	// update hw table
@@ -420,6 +590,7 @@ void rebuild_rtable(rtableNode **head, rtableNode *shadow_table)
     // release lock
     pthread_mutex_unlock(&rtable_lock);
 }
+
 
 /**
  * ---------------------------------------------------------------------------
@@ -452,6 +623,20 @@ void rtable_route_addm( struct sr_instance* sr,
     char* tmp_if = (char*)malloc(sizeof(char)*SR_NAMELEN);
     strcpy(tmp_if, interface->name);
     merge_rtable_node(&(subsystem->rtable), dest, mask, &gw, &tmp_if, 1, is_static_route);
+	free(tmp_if);
+}
+
+/** Adds a multipath route (i.e. merges new route with old ones) */
+void rtable_route_addf( struct sr_instance* sr,
+                       uint32_t dest, uint32_t gw, uint32_t mask,
+                       void* intf,
+                       int is_static_route ) 
+{
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    struct sr_vns_if *interface = (struct sr_vns_if*) intf;
+    char* tmp_if = (char*)malloc(sizeof(char)*SR_NAMELEN);
+    strcpy(tmp_if, interface->name);
+    force_insert_rtable_node(&(subsystem->rtable), dest, mask, &gw, &tmp_if, 1, is_static_route);
 	free(tmp_if);
 }
 

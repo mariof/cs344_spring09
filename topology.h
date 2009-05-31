@@ -81,4 +81,6 @@ void update_rtable();
 
 // adds this router to topology
 void addMeToTopology();
+
+int flush_topo();
 #endif
