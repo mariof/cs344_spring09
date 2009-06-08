@@ -69,6 +69,7 @@ struct sr_vns_if
     uint32_t mask;
     uint32_t speed;
     int enabled; // Added to support CLI
+    int hard_enabled;
 #ifdef _CPUMODE_
     int socket;  // Raw socket ID
 #endif /* _CPUMODE_ */

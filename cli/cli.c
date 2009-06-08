@@ -568,7 +568,7 @@ void cli_manip_ip_intf_set_enabled( const char* intf_name, int enabled ) {
     int ret;
     const char* what;
 
-    ret = router_interface_set_enabled( SR, intf_name, enabled );
+    ret = router_interface_set_hard_enabled( SR, intf_name, enabled );
     what = (enabled ? "enabled\n" : "disabled\n");
 
     switch( ret ) {

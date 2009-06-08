@@ -95,7 +95,7 @@
 #define ROUTER_OP_LUT_ARP_TABLE_DEPTH             32
 
 // Number of entrties in the routing table table
-#define ROUTER_OP_LUT_ROUTE_TABLE_DEPTH           32
+#define ROUTER_OP_LUT_ROUTE_TABLE_DEPTH           64
 
 // Number of entrties in the destination IP filter table
 #define ROUTER_OP_LUT_DST_IP_FILTER_TABLE_DEPTH   32

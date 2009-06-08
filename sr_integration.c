@@ -176,6 +176,8 @@ void sr_integ_hw_setup(struct sr_instance* sr)
 
 	sys_thread_new(topologyRefresh, NULL);
 
+	sys_thread_new(linkStatusThread, NULL);
+
 	// put own interfaces in the routing table
 	update_rtable();
 
@@ -246,6 +248,7 @@ void sr_integ_add_interface(struct sr_instance* sr,
     tmp_if->mask = ntohl(vns_if->mask);
     tmp_if->speed = vns_if->speed;
     tmp_if->enabled = 1;
+    tmp_if->hard_enabled = 1;
     
 #ifdef _CPUMODE_
     tmp_if->socket = vns_if->socket;  // Raw socket ID

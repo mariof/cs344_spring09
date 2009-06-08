@@ -749,6 +749,112 @@ void fill_rtable(rtableNode **head)
 }
 
 
+// Thread monitors link status and enables/disables interface
+void linkStatusThread(void *dummy){
+	uint32_t mac_hi, mac_lo, stat;
+	uint8_t mac[4][6];
+	int i, j, k;
+
+	struct sr_instance* sr = get_sr();
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+	
+	// read in all MACs to match interface names and status
+	pthread_rwlock_rdlock(&subsystem->if_lock);
+
+	pthread_mutex_lock(&ifRegLock);
+	
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_0_LO_REG, &mac_lo);
+	mac[0][0] = (mac_hi >> 8) & 0xFF;
+	mac[0][1] = (mac_hi) & 0xFF;
+	mac[0][2] = (mac_lo >> 24) & 0xFF;
+	mac[0][3] = (mac_lo >> 16) & 0xFF;
+	mac[0][4] = (mac_lo >> 8) & 0xFF;
+	mac[0][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_1_LO_REG, &mac_lo);
+	mac[1][0] = (mac_hi >> 8) & 0xFF;
+	mac[1][1] = (mac_hi) & 0xFF;
+	mac[1][2] = (mac_lo >> 24) & 0xFF;
+	mac[1][3] = (mac_lo >> 16) & 0xFF;
+	mac[1][4] = (mac_lo >> 8) & 0xFF;
+	mac[1][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_2_LO_REG, &mac_lo);
+	mac[2][0] = (mac_hi >> 8) & 0xFF;
+	mac[2][1] = (mac_hi) & 0xFF;
+	mac[2][2] = (mac_lo >> 24) & 0xFF;
+	mac[2][3] = (mac_lo >> 16) & 0xFF;
+	mac[2][4] = (mac_lo >> 8) & 0xFF;
+	mac[2][5] = (mac_lo) & 0xFF;
+
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_HI_REG, &mac_hi);
+	readReg(&netFPGA, ROUTER_OP_LUT_MAC_3_LO_REG, &mac_lo);
+	mac[3][0] = (mac_hi >> 8) & 0xFF;
+	mac[3][1] = (mac_hi) & 0xFF;
+	mac[3][2] = (mac_lo >> 24) & 0xFF;
+	mac[3][3] = (mac_lo >> 16) & 0xFF;
+	mac[3][4] = (mac_lo >> 8) & 0xFF;
+	mac[3][5] = (mac_lo) & 0xFF;
+
+	pthread_mutex_unlock(&ifRegLock);
+
+	int *link_status = (int*)malloc(sizeof(link_status)*subsystem->num_ifaces);
+	for(i = 0; i < subsystem->num_ifaces; i++) link_status[i] = -1;
+
+	pthread_rwlock_unlock(&subsystem->if_lock);	
+	
+	int fastreroute;
+	while(1){
+	
+		pthread_mutex_lock(&subsystem->mode_lock);
+			fastreroute = subsystem->mode & 0x2;
+		pthread_mutex_unlock(&subsystem->mode_lock);
+
+		readReg(&netFPGA, ROUTER_OP_LUT_LINK_STATUS_REG, &stat);
+			
+		pthread_rwlock_rdlock(&subsystem->if_lock);	
+		for(i = 0; i < subsystem->num_ifaces; i++){
+			for(j = 0; j < 4; j++){
+				int match = 1;
+				for(k = 0; k < 6; k++){
+					if(mac[j][k] != subsystem->ifaces[i].addr[k]){
+						match = 0;
+						break;
+					}
+				}
+				if(match){
+					int new_status = (stat >> (2*j)) & 0x01;
+					if(new_status != link_status[i]){
+						link_status[i] = new_status;
+			
+						char tmp_name[SR_NAMELEN];
+						strcpy(tmp_name, subsystem->ifaces[i].name);
+						pthread_rwlock_unlock(&subsystem->if_lock);
+						if(fastreroute){	
+							router_interface_set_enabled(sr, tmp_name, link_status[i]);
+						}
+						else{
+							router_interface_set_enabled_only(sr, tmp_name, link_status[i]);
+						}
+						pthread_rwlock_rdlock(&subsystem->if_lock);
+							
+					}
+					break;
+				}
+			}
+		}
+		pthread_rwlock_unlock(&subsystem->if_lock);	
+		
+		
+		usleep(LINK_STATUS_REFRESH);
+	}
+	
+	free(link_status);
+}
+
 /**
  * ---------------------------------------------------------------------------
  * -------------------- CLI Functions ----------------------------------------
@@ -768,12 +874,72 @@ int router_interface_set_enabled( struct sr_instance* sr, const char* name, int 
 	pthread_rwlock_wrlock(&subsystem->if_lock);
     for(i = 0; i < subsystem->num_ifaces; i++) {
 		if(!strcmp(subsystem->ifaces[i].name, name)) {
-		    if(subsystem->ifaces[i].enabled == enabled){
+		    if(subsystem->ifaces[i].enabled == enabled && subsystem->ifaces[i].hard_enabled){
 				pthread_rwlock_unlock(&subsystem->if_lock);
 				return 1;
 			}
 		    else {
-				subsystem->ifaces[i].enabled = enabled;
+				subsystem->ifaces[i].enabled = enabled && subsystem->ifaces[i].hard_enabled;
+				pthread_rwlock_unlock(&subsystem->if_lock);
+				updateNeighbors();
+				sendLSU();
+				update_rtable();
+				return 0;
+		    }
+		}
+    }
+	pthread_rwlock_unlock(&subsystem->if_lock);
+    return -1;
+}
+
+/**
+ * Enables an interface on the router.
+ * @return 0 if name was enabled
+ *         -1 if it does not not exist
+ *         1 if already set to enabled
+ */
+int router_interface_set_enabled_only( struct sr_instance* sr, const char* name, int enabled ) {
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int i;
+    if(enabled == 0) return 0;
+    
+	pthread_rwlock_wrlock(&subsystem->if_lock);
+    for(i = 0; i < subsystem->num_ifaces; i++) {
+		if(!strcmp(subsystem->ifaces[i].name, name)) {
+		    if(subsystem->ifaces[i].enabled == enabled && subsystem->ifaces[i].hard_enabled){
+				pthread_rwlock_unlock(&subsystem->if_lock);
+				return 1;
+			}
+		    else {
+				subsystem->ifaces[i].enabled = enabled && subsystem->ifaces[i].hard_enabled;
+				pthread_rwlock_unlock(&subsystem->if_lock);
+				return 0;
+		    }
+		}
+    }
+	pthread_rwlock_unlock(&subsystem->if_lock);
+    return -1;
+}
+
+/**
+ * Enables or disables an interface on the router (for use by CLI -- overrides enabled).
+ * @return 0 if name was enabled
+ *         -1 if it does not not exist
+ *         1 if already set to enabled
+ */
+int router_interface_set_hard_enabled( struct sr_instance* sr, const char* name, int enabled ) {
+    struct sr_router* subsystem = (struct sr_router*)sr_get_subsystem(sr);
+    int i;
+	pthread_rwlock_wrlock(&subsystem->if_lock);
+    for(i = 0; i < subsystem->num_ifaces; i++) {
+		if(!strcmp(subsystem->ifaces[i].name, name)) {
+		    if(subsystem->ifaces[i].hard_enabled == enabled){
+				pthread_rwlock_unlock(&subsystem->if_lock);
+				return 1;
+			}
+		    else {
+				subsystem->ifaces[i].hard_enabled = enabled;
+				subsystem->ifaces[i].enabled = subsystem->ifaces[i].enabled && enabled;
 				pthread_rwlock_unlock(&subsystem->if_lock);
 				updateNeighbors();
 				sendLSU();

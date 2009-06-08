@@ -573,10 +573,10 @@ void update_rtable()
 	pthread_mutex_lock(&subsystem->mode_lock);
 	
 	// if advanced feature is enabled, allocate more memory
-	if(subsystem->mode != 0)
+	//if(subsystem->mode != 0)
 	 	nif = subsystem->num_ifaces;
-	else	
-		nif = 1;
+	//else	
+	//	nif = 1;
 	
 	// if there is no topology, no point in doing anything
 	if(topo_head == NULL || n == 0) return;
@@ -722,7 +722,7 @@ void update_rtable()
 	    // simple bubble sort
 	    for (i = 0; i < n - 1; i++) {
 		for (j = 0; j < n-1 - i; j++)
-		    if (dist_vec[ai*n+j+1] < dist_vec[ai*n+j]) {  /* compare the two neighbors */
+		    if ( (dist_vec[ai*n+j+1] < dist_vec[ai*n+j]) || ( (dist_vec[ai*n+j+1] == dist_vec[ai*n+j]) && (rtr_vec[ai*n+j+1]->router_id < rtr_vec[ai*n+j]->router_id)) ) {  /* compare the two neighbors */
 				int tmp_int;
 				topo_router *tmp_rtr;
 				// swap dist_vec neighbors
@@ -769,7 +769,7 @@ void update_rtable()
     // simple bubble sort
     for (i = 0; i < n - 1; i++) {
 		for (j = 0; j < n-1 - i; j++)
-		    if (dist_vec_tot[j+1] < dist_vec_tot[j]) {  /* compare the two neighbors */
+		    if ( (dist_vec_tot[j+1] < dist_vec_tot[j]) || ( (dist_vec_tot[j+1] == dist_vec_tot[j]) && (rtr_vec_tot[j+1]->router_id < rtr_vec_tot[j]->router_id)) ) {  /* compare the two neighbors */
 				int tmp_int;
 				topo_router *tmp_rtr;
 				// swap dist_vec neighbors

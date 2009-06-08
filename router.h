@@ -41,6 +41,7 @@ pthread_mutex_t gwRegLock;
 #define ARP_QUEUE_REFRESH 1
 #define PING_LIST_REFRESH 1
 #define TOPO_REFRESH 1
+#define LINK_STATUS_REFRESH 1e5  // in us
 
 
 struct sr_router{
@@ -83,6 +84,7 @@ int setMultipath(int multipath);
 int setFastReroute(int fast);
 int getMode();
 void aggregateRoutes(rtableNode** rtable);
+void linkStatusThread(void *dummy);
 
 void int2byteIP(uint32_t ip, uint8_t *byteIP);
 uint32_t getInterfaceIP(const char* interface);
@@ -111,6 +113,8 @@ void writeIPfilter();
  */
 
 int router_interface_set_enabled( struct sr_instance* sr, const char* name, int enabled );
+int router_interface_set_hard_enabled( struct sr_instance* sr, const char* name, int enabled );
+int router_interface_set_enabled_only( struct sr_instance* sr, const char* name, int enabled );
 struct sr_vns_if* router_lookup_interface_via_ip( struct sr_instance* sr, uint32_t ip );
 struct sr_vns_if* router_lookup_interface_via_name( struct sr_instance* sr, const char* name );
 int router_is_interface_enabled( struct sr_instance* sr, void* intf );
